@@ -1,15 +1,13 @@
-import type { FHIRSlot, TriageRequest } from '@gpnow/types';
+import type { TriageRequest } from '@gpnow/types';
 import { transcribeAudio } from './ai/llamaTriage';
-import { checkRedFlags } from './ai/vectorizeGuard';
-import { getNearbyPharmacies, getNearbySlots, getPractices, getPracticesByLocation, getWalkInAndUrgentCareSlots, saveTriageLog } from './data/d1Db';
-import { createSbarReport } from './data/r2Storage';
+import { getNearbyPharmacies, getNearbySlots, getPractices, getPracticesByLocation, saveTriageLog } from './data/d1Db';
 import type { Env } from './env';
 import { geocodePostcode } from './lib/geo';
+import { executeTriage } from './orchestration/triageWorkflow';
 
 export { SlotLockDO } from './orchestration/slotLockDO';
 export { TriageWorkflow } from './orchestration/triageWorkflow';
 
-const disclaimer = 'This service supports care navigation and is not a diagnosis. Call 999 for a life-threatening emergency.';
 const realtimeApi = 'https://rtc.live.cloudflare.com/v1';
 
 interface SessionDescription {
@@ -204,42 +202,7 @@ async function route(request: Request, env: Env): Promise<Response> {
       longitude: body.longitude,
       consentToProcess: true
     };
-    const redFlag = await checkRedFlags(triageRequest.symptoms, env);
-
-    // Collect slots from registered GP (if any) AND all walk-in/urgent care
-    const slotPromises: Promise<FHIRSlot[]>[] = [];
-
-    if (triageRequest.registeredOdsCode) {
-      slotPromises.push(getNearbySlots(triageRequest.registeredOdsCode, env));
-    }
-
-    // Walk-in and urgent care are always shown because they do not require registration
-    slotPromises.push(getWalkInAndUrgentCareSlots(env));
-
-    const slotArrays = await Promise.all(slotPromises);
-    const slots = slotArrays.flat().sort(
-      (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
-    );
-
-    const actionRequired = redFlag.actionRequired ?? 'NONE';
-    const status = redFlag.actionRequired === '999_EMERGENCY'
-      ? 'REQUIRES_EMERGENCY_CARE'
-      : redFlag.actionRequired === '111_TRANSFER'
-        ? 'TRANSFERRED_TO_111'
-        : 'READY_TO_BOOK';
-    const report = createSbarReport(
-      triageRequest.patientId,
-      triageRequest.symptoms,
-      actionRequired === 'NONE' ? 'Offer a suitable GP appointment.' : actionRequired
-    );
-    const response = {
-      requestId: crypto.randomUUID(),
-      redFlag,
-      slots,
-      report,
-      status,
-      disclaimer
-    } as const;
+    const response = await executeTriage(triageRequest, env);
     await saveTriageLog(triageRequest, JSON.stringify(response), env);
     return json(response);
   }

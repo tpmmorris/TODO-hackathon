@@ -1,10 +1,7 @@
+import type { TriageRecommendation } from '@gpnow/types';
 import type { Env } from '../env';
 
-export interface TriageModelResult {
-  summary: string;
-  urgency: 'ROUTINE' | 'SOON' | 'URGENT';
-  suggestedAction: string;
-}
+export type TriageModelResult = TriageRecommendation;
 
 const triageSystemPrompt = `You are a cautious NHS care-navigation assistant. Summarise symptoms without diagnosing.
 Return JSON with exactly these keys: summary, urgency (ROUTINE, SOON, or URGENT), suggestedAction.

@@ -2,8 +2,10 @@ export type {
   RedFlagAction,
   RedFlagResult,
   RedFlagSeverity,
+  TriageRecommendation,
   TriageRequest,
-  TriageResponse
+  TriageResponse,
+  TriageUrgency
 } from './triage';
 export type { FHIRSlot, LocationType, SlotLockState, SlotStatus } from './slot';
 export type { PharmacyStock, PharmacyWithStock, Practice } from './nhs';

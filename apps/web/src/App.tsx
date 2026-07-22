@@ -224,6 +224,17 @@ export default function App() {
         </div>
       </section>
 
+      {result && (
+        <section className={`recommendation-card urgency-${result.recommendation.urgency.toLowerCase()}`} aria-labelledby="recommendation-title">
+          <div>
+            <span className="eyebrow">Care guidance</span>
+            <h2 id="recommendation-title">{result.recommendation.suggestedAction}</h2>
+            <p>{result.recommendation.summary}</p>
+          </div>
+          <span className="recommendation-urgency">{result.recommendation.urgency}</span>
+        </section>
+      )}
+
       <div className="tab-bar">
         <button
           type="button"
