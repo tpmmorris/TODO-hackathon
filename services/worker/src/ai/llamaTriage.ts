@@ -11,31 +11,28 @@ const languageNames: Record<PatientLanguage, string> = {
 
 function buildTriageSystemPrompt(language: PatientLanguage): string {
   return `You are a cautious NHS care-navigation assistant. Summarise symptoms without diagnosing.
-Return JSON with exactly these keys: summary, urgency (ROUTINE, SOON, or URGENT), suggestedAction.
+Return JSON with exactly these keys: summary, urgency (ROUTINE, SOON, or URGENT), recommendedRoute (GP_APPOINTMENT, WALK_IN_CENTRE, URGENT_CARE, PHARMACY_ADVICE, NHS_111, or 999_EMERGENCY), suggestedAction, generalAdvice (an array of 2 to 4 safe, non-diagnostic advice strings).
 The urgency value must stay in English as one of ROUTINE, SOON, or URGENT.
-Write the summary and suggestedAction text in ${languageNames[language]}.
+Write the summary, suggestedAction, and generalAdvice text in ${languageNames[language]}.
 Never downplay chest pain, severe breathing difficulty, loss of consciousness, stroke symptoms, or self-harm risk.
-Tell the patient to use 999 or NHS 111 when appropriate.`;
+Tell the patient to use 999 or NHS 111 when appropriate. Do not prescribe, provide medication doses, or claim a diagnosis.`;
 }
 
 function safeFallback(text: string): TriageModelResult {
   return {
     summary: text.trim() || 'No symptom narrative was provided.',
     urgency: 'SOON',
-    suggestedAction: 'Arrange a GP or NHS 111 assessment based on clinical advice.'
+    recommendedRoute: 'GP_APPOINTMENT',
+    suggestedAction: 'Arrange a GP or NHS 111 assessment based on clinical advice.',
+    generalAdvice: ['Rest and monitor how your symptoms change.', 'Seek urgent help if symptoms become severe or rapidly worsen.']
   };
 }
 
-export async function transcribeAudio(
-  audio: ArrayBuffer,
-  env: Env,
-  language?: PatientLanguage
-): Promise<string> {
+export async function transcribeAudio(audio: ArrayBuffer, env: Env, language?: PatientLanguage): Promise<string> {
   if (!env.AI) throw new Error('Workers AI is not configured');
   if (audio.byteLength === 0) throw new Error('Audio payload is empty');
   const result = (await env.AI.run('@cf/openai/whisper', {
     audio: [...new Uint8Array(audio)],
-    // ISO-639-1 hint; ignored by models that only auto-detect, honoured otherwise.
     ...(language ? { language } : {})
   })) as { text?: string };
   const text = result.text?.trim();
@@ -43,11 +40,7 @@ export async function transcribeAudio(
   return text;
 }
 
-export async function analyzeSymptoms(
-  text: string,
-  env: Env,
-  language: PatientLanguage = 'en'
-): Promise<TriageModelResult> {
+export async function analyzeSymptoms(text: string, env: Env, language: PatientLanguage = 'en'): Promise<TriageModelResult> {
   const fallback = safeFallback(text);
   try {
     if (!env.AI || !text.trim()) return fallback;
@@ -56,15 +49,21 @@ export async function analyzeSymptoms(
         { role: 'system', content: buildTriageSystemPrompt(language) },
         { role: 'user', content: text }
       ],
-      max_tokens: 300,
+      max_tokens: 400,
       temperature: 0.1
     })) as { response?: string };
     const response = result.response?.trim();
     if (!response) return fallback;
     const parsed = JSON.parse(response) as Partial<TriageModelResult>;
-    if (typeof parsed.summary !== 'string' || typeof parsed.suggestedAction !== 'string') return fallback;
+    if (typeof parsed.summary !== 'string' || typeof parsed.suggestedAction !== 'string' || !Array.isArray(parsed.generalAdvice)) return fallback;
     const urgency = parsed.urgency === 'ROUTINE' || parsed.urgency === 'URGENT' ? parsed.urgency : 'SOON';
-    return { summary: parsed.summary, urgency, suggestedAction: parsed.suggestedAction };
+    const routes = ['GP_APPOINTMENT', 'WALK_IN_CENTRE', 'URGENT_CARE', 'PHARMACY_ADVICE', 'NHS_111', '999_EMERGENCY'] as const;
+    const recommendedRoute = routes.includes(parsed.recommendedRoute as (typeof routes)[number])
+      ? parsed.recommendedRoute as (typeof routes)[number]
+      : 'GP_APPOINTMENT';
+    const generalAdvice = parsed.generalAdvice.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).slice(0, 4);
+    if (generalAdvice.length < 2) return fallback;
+    return { summary: parsed.summary, urgency, recommendedRoute, suggestedAction: parsed.suggestedAction, generalAdvice };
   } catch {
     return fallback;
   }

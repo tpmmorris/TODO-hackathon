@@ -3,6 +3,7 @@ export type {
   RedFlagAction,
   RedFlagResult,
   RedFlagSeverity,
+  RecommendedCareRoute,
   TriageRecommendation,
   TriageRequest,
   TriageResponse,

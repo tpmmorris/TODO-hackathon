@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { FHIRSlot, Practice, RedFlagResult, TriageResponse } from '@gpnow/types';
+import type { FHIRSlot, Practice, RedFlagResult, RecommendedCareRoute, TriageResponse } from '@gpnow/types';
 import { EmergencyModal } from './components/EmergencyModal';
 import { LanguageSelector } from './components/LanguageSelector';
 import { PharmacyStock } from './components/PharmacyStock';
@@ -13,7 +13,14 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'The request failed';
 }
 
-type Tab = 'appointments' | 'pharmacy';
+const routeLabels: Record<RecommendedCareRoute, string> = {
+  GP_APPOINTMENT: 'GP appointment',
+  WALK_IN_CENTRE: 'Walk-in centre',
+  URGENT_CARE: 'Urgent care',
+  PHARMACY_ADVICE: 'Pharmacy advice',
+  NHS_111: 'NHS 111',
+  '999_EMERGENCY': '999 emergency'
+};
 
 export default function App() {
   const { t, lang } = useI18n();
@@ -29,7 +36,6 @@ export default function App() {
   const [notice, setNotice] = useState('');
   const [loadError, setLoadError] = useState('');
   const [postcode, setPostcode] = useState('CB1 1AA');
-  const [activeTab, setActiveTab] = useState<Tab>('appointments');
 
   useEffect(() => {
     void Promise.all([getPractices(), getSlots()])
@@ -233,30 +239,19 @@ export default function App() {
             <span className="eyebrow">Care guidance</span>
             <h2 id="recommendation-title">{result.recommendation.suggestedAction}</h2>
             <p>{result.recommendation.summary}</p>
+            <ul className="general-advice">
+              {result.recommendation.generalAdvice.map((advice) => <li key={advice}>{advice}</li>)}
+            </ul>
           </div>
-          <span className="recommendation-urgency">{result.recommendation.urgency}</span>
+          <div className="recommendation-meta">
+            <span className="recommendation-route">{routeLabels[result.recommendation.recommendedRoute]}</span>
+            <span className="recommendation-urgency">{result.recommendation.urgency}</span>
+          </div>
         </section>
       )}
 
-      <div className="tab-bar">
-        <button
-          type="button"
-          className={activeTab === 'appointments' ? 'tab-active' : ''}
-          onClick={() => setActiveTab('appointments')}
-        >
-          {t('tabs.appointments')}
-        </button>
-        <button
-          type="button"
-          className={activeTab === 'pharmacy' ? 'tab-active' : ''}
-          onClick={() => setActiveTab('pharmacy')}
-        >
-          {t('tabs.pharmacy')}
-        </button>
-      </div>
-
-      {activeTab === 'appointments' && (
-        <>
+      <div className="care-options-grid">
+        <div>
           <div className="registration-bar">
             <label htmlFor="registered-gp">
               <span>{t('registration.label')}</span>
@@ -288,9 +283,9 @@ export default function App() {
             </p>
           </div>
           <SlotList slots={slots} registeredOdsCode={registeredOdsCode} onBook={bookSlot} />
-        </>
-      )}
-      {activeTab === 'pharmacy' && <PharmacyStock postcode={postcode} />}
+        </div>
+        <PharmacyStock postcode={postcode} />
+      </div>
 
       {result && !emergency && <p className="result-note">{t('result.complete')} {result.disclaimer}</p>}
       {emergency && <EmergencyModal result={emergency} onClose={() => setEmergency(undefined)} />}

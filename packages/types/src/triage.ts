@@ -29,10 +29,14 @@ export interface RedFlagResult {
 
 export type TriageUrgency = 'ROUTINE' | 'SOON' | 'URGENT';
 
+export type RecommendedCareRoute = 'GP_APPOINTMENT' | 'WALK_IN_CENTRE' | 'URGENT_CARE' | 'PHARMACY_ADVICE' | 'NHS_111' | '999_EMERGENCY';
+
 export interface TriageRecommendation {
   summary: string;
   urgency: TriageUrgency;
+  recommendedRoute: RecommendedCareRoute;
   suggestedAction: string;
+  generalAdvice: string[];
 }
 
 export interface TriageResponse {
