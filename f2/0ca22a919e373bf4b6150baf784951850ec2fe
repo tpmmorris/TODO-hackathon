@@ -1,0 +1,19 @@
+pnpm-lock.yaml
+  s_720a4b383dbec1::t_3fe2a1d8342216 1-2014
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "f20ca22a919e373bf4b6150baf784951850ec2fe",
+  "prompts": {},
+  "sessions": {
+    "s_720a4b383dbec1": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0757098ecffe1wr8fCwbpzIuL2",
+        "model": "gpt-5.6-luna"
+      },
+      "human_author": "Arka Mondal <amondal@cloudflare.com>"
+    }
+  }
+}
