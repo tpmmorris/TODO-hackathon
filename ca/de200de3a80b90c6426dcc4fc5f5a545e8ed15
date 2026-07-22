@@ -1,0 +1,19 @@
+pnpm-lock.yaml
+  s_8529d4760cc594::t_68c013ebfd383e 51-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "cade200de3a80b90c6426dcc4fc5f5a545e8ed15",
+  "prompts": {},
+  "sessions": {
+    "s_8529d4760cc594": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_07576b137ffeNHeYwhI51E5woG",
+        "model": "@cf/moonshotai/kimi-k2.6"
+      },
+      "human_author": "tmo <tennyson@cloudflare.com>"
+    }
+  }
+}
