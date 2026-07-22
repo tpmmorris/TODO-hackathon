@@ -1,0 +1,37 @@
+AGENTS.md
+  s_720a4b383dbec1::t_955fd2250743cb 41,107,109,113,120,187,215-216,235-236
+README.md
+  s_720a4b383dbec1::t_7e8c6e39440413 22-24,51,75,77,80-82,84,86
+apps/web/.env.example
+  s_720a4b383dbec1::t_86c26c6f3b6c2f 1-4
+apps/web/src/App.tsx
+  s_720a4b383dbec1::t_887cd0f7213a0a 165-172
+apps/web/src/components/VoiceRecorder.tsx
+  s_720a4b383dbec1::t_59e76c69ff440c 2,5-6,10,12-13,15,17-41,45-52,56,64,66-76,78,80,83,92,96
+apps/web/src/services/api.ts
+  s_720a4b383dbec1::t_e73d702e5c7732 5-7,10,16-17,21-22,26-27,31-35,38-52
+services/worker/src/ai/llamaTriage.ts
+  s_720a4b383dbec1::t_680428570c4d67 23-30
+services/worker/src/env.ts
+  s_720a4b383dbec1::t_b9f0f4e9f7de61 4
+services/worker/src/index.ts
+  s_720a4b383dbec1::t_ff36f37a98ccaf 2,181-191,243,247-248
+services/worker/wrangler.jsonc
+  s_720a4b383dbec1::t_47c80b9d9cca2b 7-12,20,46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "b037a8d3cb0966ac6ac4cc99a9096f7e56e0557e",
+  "prompts": {},
+  "sessions": {
+    "s_720a4b383dbec1": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0757098ecffe1wr8fCwbpzIuL2",
+        "model": "gpt-5.6-luna"
+      },
+      "human_author": "Arka Mondal <amondal@cloudflare.com>"
+    }
+  }
+}
