@@ -17,6 +17,13 @@ const localeMap: Record<Language, string> = {
 export function SlotList({ slots, registeredOdsCode, onBook }: SlotListProps) {
   const { t, lang } = useI18n();
 
+  // Walk-in and urgent care are always shown. GP slots only appear when they are
+  // the patient's registered practice or the practice accepts out-of-area patients.
+  const visibleSlots = slots.filter((slot) => {
+    if (!slot.requiresRegistration) return true;
+    return slot.odsCode === registeredOdsCode || slot.acceptsOutOfArea;
+  });
+
   function formatSlot(startTime: string) {
     return new Intl.DateTimeFormat(localeMap[lang], {
       weekday: 'short',
@@ -45,13 +52,13 @@ export function SlotList({ slots, registeredOdsCode, onBook }: SlotListProps) {
           <span className="eyebrow">{t('slots.eyebrow')}</span>
           <h2 id="slots-title">{t('slots.title')}</h2>
         </div>
-        <span className="slot-count">{t('slots.open', { n: slots.length })}</span>
+        <span className="slot-count">{t('slots.open', { n: visibleSlots.length })}</span>
       </div>
       <div className="slot-list">
-        {slots.length === 0 ? (
+        {visibleSlots.length === 0 ? (
           <p className="empty-state">{t('slots.empty')}</p>
         ) : (
-          slots.map((slot) => {
+          visibleSlots.map((slot) => {
             const isRegistered = slot.odsCode === registeredOdsCode;
             const canBook = !slot.requiresRegistration || isRegistered || slot.acceptsOutOfArea;
             const buttonLabel = canBook ? t('slots.hold') : t('slots.registerFirst');
@@ -80,7 +87,7 @@ export function SlotList({ slots, registeredOdsCode, onBook }: SlotListProps) {
                 )}
                 <div className="slot-actions">
                   <span className="slot-status">{slot.status === 'FREE' ? t('slots.available') : slot.status}</span>
-                  <button type="button" onClick={() => onBook(slot)} disabled={slot.status !== 'FREE'}>
+                  <button type="button" onClick={() => onBook(slot)} disabled={slot.status !== 'FREE' || !canBook}>
                     {buttonLabel}
                   </button>
                 </div>

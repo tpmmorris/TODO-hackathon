@@ -1,4 +1,4 @@
-import type { FHIRSlot, PharmacyWithStock, Practice, TriageRequest, TriageResponse } from '@gpnow/types';
+import type { FHIRSlot, PatientLanguage, PharmacyWithStock, Practice, TriageRequest, TriageResponse } from '@gpnow/types';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 
@@ -35,13 +35,14 @@ export async function submitTriage(input: TriageRequest): Promise<TriageResponse
   });
 }
 
-export async function transcribeAudio(audio: Blob, patientId: string): Promise<string> {
+export async function transcribeAudio(audio: Blob, patientId: string, language?: PatientLanguage): Promise<string> {
   const response = await request<{ text: string }>('/api/transcribe', {
     method: 'POST',
     headers: {
       'content-type': audio.type || 'audio/webm',
       'x-consent-to-process': 'true',
-      'x-patient-id': patientId
+      'x-patient-id': patientId,
+      ...(language ? { 'x-language': language } : {})
     },
     body: audio
   });

@@ -1,4 +1,5 @@
 export type {
+  PatientLanguage,
   RedFlagAction,
   RedFlagResult,
   RedFlagSeverity,

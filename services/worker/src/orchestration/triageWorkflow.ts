@@ -1,4 +1,11 @@
-import type { FHIRSlot, RedFlagResult, TriageRecommendation, TriageRequest, TriageResponse } from '@gpnow/types';
+import type {
+  FHIRSlot,
+  PatientLanguage,
+  RedFlagResult,
+  TriageRecommendation,
+  TriageRequest,
+  TriageResponse
+} from '@gpnow/types';
 import { WorkflowEntrypoint } from 'cloudflare:workers';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
 import { analyzeSymptoms } from '../ai/llamaTriage';
@@ -19,27 +26,48 @@ function statusFor(redFlag: RedFlagResult): TriageResponse['status'] {
       : 'READY_TO_BOOK';
 }
 
-function enforceSafety(redFlag: RedFlagResult, recommendation: TriageRecommendation): TriageRecommendation {
+interface SafetyMessages {
+  emergency999: string;
+  transfer111: string;
+  urgentRedFlag: string;
+}
+
+/**
+ * Deterministic, translator-independent safety copy. These override any model
+ * output on a red flag, so they must be authored directly per language.
+ */
+const safetyMessages: Record<PatientLanguage, SafetyMessages> = {
+  en: {
+    emergency999: 'Call 999 now. Do not wait for a GP appointment.',
+    transfer111: 'Contact NHS 111 now for urgent clinical assessment.',
+    urgentRedFlag: 'Seek urgent clinical advice through NHS 111.'
+  },
+  cy: {
+    emergency999: 'Ffoniwch 999 nawr. Peidiwch ag aros am apwyntiad meddyg teulu.',
+    transfer111: 'Cysylltwch â GIG 111 nawr am asesiad clinigol brys.',
+    urgentRedFlag: 'Ceisiwch gyngor clinigol brys drwy GIG 111.'
+  },
+  pl: {
+    emergency999: 'Zadzwoń teraz pod 999. Nie czekaj na wizytę u lekarza.',
+    transfer111: 'Skontaktuj się teraz z NHS 111 w celu pilnej oceny klinicznej.',
+    urgentRedFlag: 'Zasięgnij pilnej porady klinicznej przez NHS 111.'
+  }
+};
+
+function enforceSafety(
+  redFlag: RedFlagResult,
+  recommendation: TriageRecommendation,
+  language: PatientLanguage
+): TriageRecommendation {
+  const messages = safetyMessages[language] ?? safetyMessages.en;
   if (redFlag.actionRequired === '999_EMERGENCY') {
-    return {
-      summary: recommendation.summary,
-      urgency: 'URGENT',
-      suggestedAction: 'Call 999 now. Do not wait for a GP appointment.'
-    };
+    return { summary: recommendation.summary, urgency: 'URGENT', suggestedAction: messages.emergency999 };
   }
   if (redFlag.actionRequired === '111_TRANSFER') {
-    return {
-      summary: recommendation.summary,
-      urgency: 'URGENT',
-      suggestedAction: 'Contact NHS 111 now for urgent clinical assessment.'
-    };
+    return { summary: recommendation.summary, urgency: 'URGENT', suggestedAction: messages.transfer111 };
   }
   if (redFlag.isRedFlag) {
-    return {
-      summary: recommendation.summary,
-      urgency: 'URGENT',
-      suggestedAction: 'Seek urgent clinical advice through NHS 111.'
-    };
+    return { summary: recommendation.summary, urgency: 'URGENT', suggestedAction: messages.urgentRedFlag };
   }
   return recommendation;
 }
@@ -60,7 +88,8 @@ function buildResponse(
   recommendation: TriageRecommendation,
   slots: FHIRSlot[]
 ): TriageResponse {
-  const safeRecommendation = enforceSafety(redFlag, recommendation);
+  const language = request.language ?? 'en';
+  const safeRecommendation = enforceSafety(redFlag, recommendation, language);
   return {
     requestId: crypto.randomUUID(),
     redFlag,
@@ -74,10 +103,11 @@ function buildResponse(
 
 /** Synchronous HTTP path used by the API while sharing the Workflow stages. */
 export async function executeTriage(request: TriageRequest, env: Env): Promise<TriageResponse> {
+  const language = request.language ?? 'en';
   const redFlag = await checkRedFlags(request.symptoms, env);
   const recommendation = redFlag.actionRequired === '999_EMERGENCY'
     ? { summary: request.symptoms, urgency: 'URGENT' as const, suggestedAction: 'Call 999 now.' }
-    : await analyzeSymptoms(request.symptoms, env);
+    : await analyzeSymptoms(request.symptoms, env, language);
   const slots = await aggregateSlots(request, redFlag, env);
   return buildResponse(request, redFlag, recommendation, slots);
 }
@@ -85,11 +115,12 @@ export async function executeTriage(request: TriageRequest, env: Env): Promise<T
 export class TriageWorkflow extends WorkflowEntrypoint<Env, TriageWorkflowParams> {
   async run(event: WorkflowEvent<TriageWorkflowParams>, step: WorkflowStep): Promise<TriageResponse> {
     const request = event.payload.request;
+    const language = request.language ?? 'en';
     const redFlag = await step.do('run clinical safety guardrail', async () => checkRedFlags(request.symptoms, this.env));
     const recommendation = await step.do('generate care-navigation recommendation', async () =>
       redFlag.actionRequired === '999_EMERGENCY'
         ? { summary: request.symptoms, urgency: 'URGENT' as const, suggestedAction: 'Call 999 now.' }
-        : analyzeSymptoms(request.symptoms, this.env)
+        : analyzeSymptoms(request.symptoms, this.env, language)
     );
     const slots = await step.do('aggregate registration-aware care options', async () =>
       aggregateSlots(request, redFlag, this.env)

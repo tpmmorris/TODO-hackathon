@@ -1,6 +1,9 @@
 import type { FHIRSlot } from './slot';
 import type { SBARReport } from './sbar';
 
+/** Patient-facing languages supported by GPNow. `en` is the safe default. */
+export type PatientLanguage = 'en' | 'cy' | 'pl';
+
 export interface TriageRequest {
   patientId: string;
   symptoms: string;
@@ -9,6 +12,7 @@ export interface TriageRequest {
   registeredOdsCode?: string;
   latitude?: number;
   longitude?: number;
+  language?: PatientLanguage;
   consentToProcess: boolean;
 }
 

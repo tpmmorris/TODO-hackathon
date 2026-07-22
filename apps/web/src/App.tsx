@@ -16,7 +16,7 @@ function getErrorMessage(error: unknown): string {
 type Tab = 'appointments' | 'pharmacy';
 
 export default function App() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [practices, setPractices] = useState<Practice[]>([]);
   const [slots, setSlots] = useState<FHIRSlot[]>([]);
   const [selectedPractice, setSelectedPractice] = useState<Practice>();
@@ -78,6 +78,7 @@ export default function App() {
         symptoms,
         odsCode: selectedPractice?.odsCode,
         registeredOdsCode: registeredOdsCode || undefined,
+        language: lang,
         consentToProcess: true
       });
       setResult(triageResponse);
