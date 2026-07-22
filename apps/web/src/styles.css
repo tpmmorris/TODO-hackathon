@@ -77,7 +77,7 @@ textarea::placeholder { color: #a9b8be; }
 .open-pill, .slot-status { padding: 5px 8px; border-radius: 20px; color: #347e71; background: #e2f3ed; font-size: 10px; font-weight: 800; white-space: nowrap; }
 .slots-panel { margin-top: 54px; padding-top: 27px; border-top: 1px solid #dce5e9; }
 .slot-count { padding-top: 11px; color: #1f7a8c; font-size: 12px; font-weight: 700; }
-.slot-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 23px; }
+.slot-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 23px; }
 .slot-card { display: flex; min-height: 148px; flex-direction: column; justify-content: space-between; padding: 17px; border: 1px solid #dbe6e8; border-radius: 4px; background: #fff; }
 .slot-time { display: flex; flex-direction: column; gap: 6px; color: #17324d; font-size: 13px; font-weight: 800; }
 .slot-time small { color: #80939c; font-size: 10px; font-weight: 500; }
