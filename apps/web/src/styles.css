@@ -102,9 +102,13 @@ textarea::placeholder { color: #a9b8be; }
 .general-advice { display: grid; gap: 6px; margin: 14px 0 0; padding: 0 0 0 18px; color: #657984; font-size: 12px; line-height: 1.5; }
 .urgency-urgent { border-color: #f0c4bf; border-left-color: #d94c3d; background: #fff7f5; }
 .urgency-urgent .recommendation-urgency { color: #9b3730; background: #ffe6e2; }
-.care-options-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr); gap: 34px; margin-top: 48px; }
-.care-options-grid .slots-panel { margin-top: 0; }
-.care-options-grid .pharmacy-panel { margin-top: 0; padding-top: 27px; border-top: 1px solid #dce5e9; }
+.care-options-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr); align-items: start; gap: 34px; margin-top: 48px; }
+.care-options-column, .care-options-grid > .pharmacy-panel { min-width: 0; padding: 24px; border: 1px solid #dbe6e8; border-radius: 5px; background: #fff; box-shadow: 0 12px 30px rgba(28, 61, 79, .04); }
+.care-options-column .registration-bar { margin-top: 0; padding: 0 0 18px; border: 0; border-bottom: 1px solid #dce5e9; border-radius: 0; }
+.care-options-column .slots-panel { margin-top: 24px; padding-top: 0; border-top: 0; }
+.care-options-grid > .pharmacy-panel { margin-top: 0; }
+.care-options-grid .pharmacy-list { grid-template-columns: 1fr; }
+.care-options-grid .pharmacy-search { min-width: 0; }
 @media (max-width: 540px) {
   .recommendation-card { flex-direction: column; }
   .recommendation-meta { align-items: start; flex-direction: row; }

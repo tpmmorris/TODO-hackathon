@@ -247,7 +247,7 @@ export default function App() {
       )}
 
       <div className="care-options-grid">
-        <div>
+        <div className="care-options-column">
           <div className="registration-bar">
             <label htmlFor="registered-gp">
               <span>{t('registration.label')}</span>
