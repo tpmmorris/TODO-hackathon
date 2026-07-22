@@ -1,11 +1,14 @@
 import type { TriageRequest } from '@gpnow/types';
 import { transcribeAudio } from './ai/llamaTriage';
-import { getNearbyPharmacies, getNearbySlots, getPractices, getPracticesByLocation, saveTriageLog } from './data/d1Db';
+import { getNearbySlots, getPractices, getPracticesByLocation, saveTriageLog } from './data/d1Db';
+import { getPrescribingSummary } from './data/openPrescribing';
 import type { Env } from './env';
 import { geocodePostcode } from './lib/geo';
+import { executeCareOptions } from './orchestration/careOptionsWorkflow';
 import { executeTriage } from './orchestration/triageWorkflow';
 
 export { SlotLockDO } from './orchestration/slotLockDO';
+export { CareOptionsWorkflow } from './orchestration/careOptionsWorkflow';
 export { TriageWorkflow } from './orchestration/triageWorkflow';
 
 const realtimeApi = 'https://rtc.live.cloudflare.com/v1';
@@ -165,15 +168,30 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (url.pathname === '/api/pharmacy-stock' && request.method === 'GET') {
     const postcode = url.searchParams.get('postcode');
     const medicine = url.searchParams.get('medicine') ?? '';
-    const radiusKm = parseFloat(url.searchParams.get('radiusKm') ?? '5');
 
     if (!postcode || !medicine.trim()) {
       return json({ error: 'postcode and medicine are required' }, 400);
     }
 
-    const { latitude, longitude } = await geocodePostcode(postcode);
-    const pharmacies = await getNearbyPharmacies(latitude, longitude, medicine, radiusKm, env);
-    return json(pharmacies);
+    const careOptions = await executeCareOptions({ postcode, medicine }, env);
+    return json(careOptions.pharmacies);
+  }
+
+  if (url.pathname === '/api/care-options' && request.method === 'GET') {
+    const postcode = url.searchParams.get('postcode');
+    if (!postcode?.trim()) return json({ error: 'postcode is required' }, 400);
+    return json(await executeCareOptions({
+      postcode,
+      registeredOdsCode: url.searchParams.get('registeredOdsCode') ?? undefined,
+      medicine: url.searchParams.get('medicine') ?? undefined,
+      includePrescribing: url.searchParams.get('includePrescribing') === 'true'
+    }, env));
+  }
+
+  if (url.pathname === '/api/prescribing' && request.method === 'GET') {
+    const odsCode = url.searchParams.get('odsCode');
+    if (!odsCode?.trim()) return json({ error: 'odsCode is required' }, 400);
+    return json(await getPrescribingSummary(odsCode));
   }
 
   if (url.pathname === '/api/transcribe' && request.method === 'POST') {

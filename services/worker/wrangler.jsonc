@@ -51,6 +51,11 @@
       "name": "triage-workflow",
       "binding": "TRIAGE_WORKFLOW",
       "class_name": "TriageWorkflow"
+    },
+    {
+      "name": "care-options-workflow",
+      "binding": "CARE_OPTIONS_WORKFLOW",
+      "class_name": "CareOptionsWorkflow"
     }
   ]
 }
