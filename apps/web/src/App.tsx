@@ -140,10 +140,6 @@ export default function App() {
           <h1>{t('hero.title')}</h1>
           <p>{t('hero.subtitle')}</p>
         </div>
-        <div className="hero-stat">
-          <strong>4.8 min</strong>
-          <span>{t('hero.statLabel')}</span>
-        </div>
       </section>
 
       <section className="dashboard-grid">
