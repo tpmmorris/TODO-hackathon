@@ -5,6 +5,6 @@ export type {
   TriageRequest,
   TriageResponse
 } from './triage';
-export type { FHIRSlot, SlotLockState, SlotStatus } from './slot';
-export type { PharmacyStock, Practice } from './nhs';
+export type { FHIRSlot, LocationType, SlotLockState, SlotStatus } from './slot';
+export type { PharmacyStock, PharmacyWithStock, Practice } from './nhs';
 export type { SBARReport } from './sbar';

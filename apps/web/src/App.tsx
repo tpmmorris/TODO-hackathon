@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FHIRSlot, Practice, RedFlagResult, TriageResponse } from '@gpnow/types';
 import { EmergencyModal } from './components/EmergencyModal';
+import { PharmacyStock } from './components/PharmacyStock';
 import { PracticeMap } from './components/PracticeMap';
 import { SlotList } from './components/SlotList';
 import { VoiceRecorder } from './components/VoiceRecorder';
@@ -12,10 +13,13 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'The request failed';
 }
 
+type Tab = 'appointments' | 'pharmacy';
+
 export default function App() {
   const [practices, setPractices] = useState<Practice[]>([]);
   const [slots, setSlots] = useState<FHIRSlot[]>([]);
   const [selectedPractice, setSelectedPractice] = useState<Practice>();
+  const [registeredOdsCode, setRegisteredOdsCode] = useState<string>('');
   const [symptoms, setSymptoms] = useState('');
   const [result, setResult] = useState<TriageResponse>();
   const [emergency, setEmergency] = useState<RedFlagResult>();
@@ -23,6 +27,8 @@ export default function App() {
   const [triaging, setTriaging] = useState(false);
   const [notice, setNotice] = useState('');
   const [loadError, setLoadError] = useState('');
+  const [postcode, setPostcode] = useState('CB1 1AA');
+  const [activeTab, setActiveTab] = useState<Tab>('appointments');
 
   useEffect(() => {
     void Promise.all([getPractices(), getSlots()])
@@ -38,6 +44,25 @@ export default function App() {
       });
   }, []);
 
+  async function loadPractices(pc: string) {
+    setLoading(true);
+    try {
+      const loadedPractices = await getPractices(pc);
+      setPractices(loadedPractices);
+      if (loadedPractices.length > 0) {
+        setSelectedPractice(loadedPractices[0]);
+        setSlots(await getSlots(loadedPractices[0].odsCode));
+      } else {
+        setSelectedPractice(undefined);
+        setSlots([]);
+      }
+    } catch (error: unknown) {
+      setNotice(getErrorMessage(error));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function runTriage() {
     if (!symptoms.trim()) {
       setNotice('Add a few details before starting triage.');
@@ -51,6 +76,7 @@ export default function App() {
         patientId: 'demo-patient',
         symptoms,
         odsCode: selectedPractice?.odsCode,
+        registeredOdsCode: registeredOdsCode || undefined,
         consentToProcess: true
       });
       setResult(triageResponse);
@@ -76,6 +102,11 @@ export default function App() {
 
   function bookSlot(slot: FHIRSlot) {
     setNotice(`${slot.practitionerRole} appointment held for 10 minutes. Booking handoff is next.`);
+  }
+
+  function handlePostcodeSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    void loadPractices(postcode);
   }
 
   return (
@@ -154,7 +185,16 @@ export default function App() {
               <span className="eyebrow">Step 2</span>
               <h2>Nearby practices</h2>
             </div>
-            <button className="location-button" type="button">⌖ Cambridge</button>
+            <form className="postcode-form" onSubmit={handlePostcodeSubmit}>
+              <input
+                type="text"
+                value={postcode}
+                onChange={(e) => setPostcode(e.target.value)}
+                placeholder="Enter postcode"
+                aria-label="Postcode"
+              />
+              <button type="submit">Search</button>
+            </form>
           </div>
           <div className="map-frame">
             {loading ? <div className="map-loading">Loading local care network...</div> : <PracticeMap practices={practices} selectedOdsCode={selectedPractice?.odsCode} onSelect={selectPractice} />}
@@ -165,6 +205,9 @@ export default function App() {
                 <span className="eyebrow">Selected practice</span>
                 <strong>{selectedPractice.name}</strong>
                 <span>{selectedPractice.address}</span>
+                {selectedPractice.distanceKm !== undefined && (
+                  <small>{selectedPractice.distanceKm.toFixed(1)} km away</small>
+                )}
               </div>
             ) : (
               <span>Select a practice on the map</span>
@@ -174,7 +217,60 @@ export default function App() {
         </div>
       </section>
 
-      <SlotList slots={slots} onBook={bookSlot} />
+      <div className="tab-bar">
+        <button
+          type="button"
+          className={activeTab === 'appointments' ? 'tab-active' : ''}
+          onClick={() => setActiveTab('appointments')}
+        >
+          Appointments
+        </button>
+        <button
+          type="button"
+          className={activeTab === 'pharmacy' ? 'tab-active' : ''}
+          onClick={() => setActiveTab('pharmacy')}
+        >
+          Pharmacy Stock
+        </button>
+      </div>
+
+      {activeTab === 'appointments' && (
+        <>
+          <div className="registration-bar">
+            <label htmlFor="registered-gp">
+              <span>Your registered GP:</span>
+              <select
+                id="registered-gp"
+                value={registeredOdsCode}
+                onChange={(e) => setRegisteredOdsCode(e.target.value)}
+                disabled={loading || practices.length === 0}
+                aria-label="Select your registered GP"
+              >
+                <option value="">I am not registered / not sure</option>
+                {practices
+                  .filter((p) => p.type === 'GP')
+                  .map((p) => (
+                    <option key={p.odsCode} value={p.odsCode}>
+                      {p.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <p className="registration-hint">
+              {loading
+                ? 'Loading nearby practices...'
+                : practices.filter((p) => p.type === 'GP').length === 0
+                  ? 'No GP practices found in this area.'
+                  : registeredOdsCode
+                    ? 'Appointments at your registered GP are bookable. Walk-in and urgent care options are always shown.'
+                    : 'Walk-in centres and urgent care do not require registration.'}
+            </p>
+          </div>
+          <SlotList slots={slots} registeredOdsCode={registeredOdsCode} onBook={bookSlot} />
+        </>
+      )}
+      {activeTab === 'pharmacy' && <PharmacyStock postcode={postcode} />}
+
       {result && !emergency && <p className="result-note">Safety check complete. {result.disclaimer}</p>}
       {emergency && <EmergencyModal result={emergency} onClose={() => setEmergency(undefined)} />}
     </main>

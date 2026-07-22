@@ -1,8 +1,9 @@
-import type { TriageRequest } from '@gpnow/types';
+import type { FHIRSlot, TriageRequest } from '@gpnow/types';
 import { checkRedFlags } from './ai/vectorizeGuard';
-import { getNearbySlots, getPractices, saveTriageLog } from './data/d1Db';
+import { getNearbyPharmacies, getNearbySlots, getPractices, getPracticesByLocation, getWalkInAndUrgentCareSlots, saveTriageLog } from './data/d1Db';
 import { createSbarReport } from './data/r2Storage';
 import type { Env } from './env';
+import { geocodePostcode } from './lib/geo';
 
 export { SlotLockDO } from './orchestration/slotLockDO';
 export { TriageWorkflow } from './orchestration/triageWorkflow';
@@ -139,12 +140,21 @@ async function route(request: Request, env: Env): Promise<Response> {
       service: 'gpnow-worker',
       status: 'ok',
       message: 'Worker API is running. Open http://localhost:5173 for the GPNow UI.',
-      endpoints: ['/api/health', '/api/practices', '/api/slots', '/api/triage', '/api/calls/ice-servers', '/api/calls/offer']
+      endpoints: ['/api/health', '/api/practices', '/api/slots', '/api/triage', '/api/calls/ice-servers', '/api/calls/offer', '/api/pharmacy-stock']
     });
   }
   if (url.pathname === '/api/health') return json({ service: 'gpnow-worker', status: 'ok' });
 
   if (url.pathname === '/api/practices' && request.method === 'GET') {
+    const postcode = url.searchParams.get('postcode');
+    const radiusKm = parseFloat(url.searchParams.get('radiusKm') ?? '5');
+
+    if (postcode) {
+      const { latitude, longitude } = await geocodePostcode(postcode);
+      const practices = await getPracticesByLocation(latitude, longitude, radiusKm, env);
+      return json(practices);
+    }
+
     return json(await getPractices(env));
   }
 
@@ -161,6 +171,20 @@ async function route(request: Request, env: Env): Promise<Response> {
     return getTurnCredentials(env);
   }
 
+  if (url.pathname === '/api/pharmacy-stock' && request.method === 'GET') {
+    const postcode = url.searchParams.get('postcode');
+    const medicine = url.searchParams.get('medicine') ?? '';
+    const radiusKm = parseFloat(url.searchParams.get('radiusKm') ?? '5');
+
+    if (!postcode || !medicine.trim()) {
+      return json({ error: 'postcode and medicine are required' }, 400);
+    }
+
+    const { latitude, longitude } = await geocodePostcode(postcode);
+    const pharmacies = await getNearbyPharmacies(latitude, longitude, medicine, radiusKm, env);
+    return json(pharmacies);
+  }
+
   if (url.pathname === '/api/triage' && request.method === 'POST') {
     const body = (await request.json()) as Partial<TriageRequest>;
     if (typeof body.patientId !== 'string' || typeof body.symptoms !== 'string' || body.consentToProcess !== true) {
@@ -171,12 +195,28 @@ async function route(request: Request, env: Env): Promise<Response> {
       symptoms: body.symptoms,
       audioKey: body.audioKey,
       odsCode: body.odsCode,
+      registeredOdsCode: body.registeredOdsCode,
       latitude: body.latitude,
       longitude: body.longitude,
       consentToProcess: true
     };
     const redFlag = await checkRedFlags(triageRequest.symptoms, env);
-    const slots = await getNearbySlots(triageRequest.odsCode ?? 'G82001', env);
+
+    // Collect slots from registered GP (if any) AND all walk-in/urgent care
+    const slotPromises: Promise<FHIRSlot[]>[] = [];
+
+    if (triageRequest.registeredOdsCode) {
+      slotPromises.push(getNearbySlots(triageRequest.registeredOdsCode, env));
+    }
+
+    // Walk-in and urgent care are always shown because they do not require registration
+    slotPromises.push(getWalkInAndUrgentCareSlots(env));
+
+    const slotArrays = await Promise.all(slotPromises);
+    const slots = slotArrays.flat().sort(
+      (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+    );
+
     const actionRequired = redFlag.actionRequired ?? 'NONE';
     const status = redFlag.actionRequired === '999_EMERGENCY'
       ? 'REQUIRES_EMERGENCY_CARE'
@@ -196,7 +236,11 @@ async function route(request: Request, env: Env): Promise<Response> {
       status,
       disclaimer
     } as const;
-    await saveTriageLog(triageRequest, JSON.stringify(response), env);
+    try {
+      await saveTriageLog(triageRequest, JSON.stringify(response), env);
+    } catch {
+      // Logging must not block a safety response when D1 is unavailable locally.
+    }
     return json(response);
   }
 

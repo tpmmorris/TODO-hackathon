@@ -6,6 +6,7 @@ export interface TriageRequest {
   symptoms: string;
   audioKey?: string;
   odsCode?: string;
+  registeredOdsCode?: string;
   latitude?: number;
   longitude?: number;
   consentToProcess: boolean;

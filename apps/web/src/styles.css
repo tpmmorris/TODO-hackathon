@@ -79,7 +79,7 @@ textarea::placeholder { color: #a9b8be; }
 .slot-card button { align-self: start; padding: 0; border: 0; color: #1f7a8c; background: transparent; font-size: 11px; font-weight: 800; }
 .slot-card button:hover { color: #e86a33; }
 .empty-state { color: #82959e; font-size: 13px; }
-.modal-backdrop { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(16, 42, 67, .58); }
+.modal-backdrop { position: fixed; z-index: 9999; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(16, 42, 67, .58); }
 .emergency-modal { max-width: 440px; padding: 38px; border-top: 5px solid #d94c3d; border-radius: 5px; background: #fff; box-shadow: 0 24px 70px rgba(0,0,0,.25); }
 .alert-mark { display: grid; width: 37px; height: 37px; margin-bottom: 22px; place-items: center; border-radius: 50%; color: #fff; background: #d94c3d; font-weight: 800; }
 .emergency-modal h2 { font-size: 34px; }
@@ -105,4 +105,64 @@ textarea::placeholder { color: #a9b8be; }
   .trust-row { flex-direction: column; gap: 7px; }
   .slot-list { grid-template-columns: 1fr; }
   .practice-strip { align-items: start; flex-direction: column; }
+  .postcode-form { width: 100%; }
+  .pharmacy-list { grid-template-columns: 1fr; }
+}
+
+/* Registration bar */
+.registration-bar { margin-top: 24px; padding: 16px 20px; border: 1px solid #dbe6e8; border-radius: 4px; background: #fff; }
+.registration-bar label { display: flex; align-items: center; gap: 12px; font-size: 13px; color: #17324d; cursor: pointer; }
+.registration-bar label span { font-weight: 700; white-space: nowrap; }
+.registration-bar select { flex: 1; min-width: 200px; padding: 8px 12px; border: 1px solid #cbd9de; border-radius: 3px; font-size: 13px; color: #17324d; background: #fbfdfd; cursor: pointer; appearance: auto; -webkit-appearance: auto; }
+.registration-bar select:disabled { opacity: 0.6; cursor: not-allowed; }
+.registration-hint { margin: 8px 0 0; color: #82959e; font-size: 11px; }
+
+/* Slot location display */
+.slot-meta { display: flex; align-items: start; justify-content: space-between; gap: 8px; }
+.slot-location { display: flex; flex-direction: column; gap: 2px; margin: 10px 0; }
+.slot-location strong { color: #17324d; font-size: 13px; }
+.slot-location span { color: #80939c; font-size: 11px; }
+.slot-location small { color: #a3b1b7; font-size: 10px; }
+.slot-location .phone { color: #1f7a8c; }
+.registration-note { margin: 8px 0; padding: 8px; border-radius: 3px; color: #8a6a29; background: #fff8e1; font-size: 11px; line-height: 1.4; }
+.slot-actions { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
+.location-pill { padding: 3px 8px; border-radius: 20px; font-size: 10px; font-weight: 800; white-space: nowrap; }
+.location-pill.gp { color: #347e71; background: #e2f3ed; }
+.location-pill.walk_in { color: #1f7a8c; background: #e2f2f2; }
+.location-pill.urgent_care { color: #9b5045; background: #fff1ef; }
+.tab-bar { display: flex; gap: 8px; margin-top: 48px; border-bottom: 1px solid #dce5e9; }
+.tab-bar button { padding: 12px 20px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: #82959e; font-size: 13px; font-weight: 700; cursor: pointer; }
+.tab-bar button.tab-active { color: #17324d; border-bottom-color: #1f7a8c; }
+.tab-bar button:hover { color: #17324d; }
+
+/* Postcode form */
+.postcode-form { display: flex; gap: 8px; }
+.postcode-form input { padding: 8px 12px; border: 1px solid #cbd9de; border-radius: 3px; font-size: 12px; width: 140px; }
+.postcode-form button { padding: 8px 14px; border: 0; border-radius: 3px; background: #1f7a8c; color: white; font-size: 11px; font-weight: 700; cursor: pointer; }
+.postcode-form button:hover { background: #1a6270; }
+
+/* Pharmacy panel */
+.pharmacy-panel { margin-top: 24px; }
+.pharmacy-search { display: flex; gap: 10px; margin: 20px 0; }
+.pharmacy-search input { flex: 1; padding: 12px 14px; border: 1px solid #cbd9de; border-radius: 3px; font-size: 13px; }
+.pharmacy-search button { padding: 12px 22px; border: 0; border-radius: 3px; background: #17324d; color: white; font-size: 12px; font-weight: 700; cursor: pointer; }
+.pharmacy-search button:disabled { opacity: .6; cursor: wait; }
+
+.pharmacy-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 20px; }
+.pharmacy-card { display: flex; flex-direction: column; justify-content: space-between; padding: 18px; border: 1px solid #dbe6e8; border-radius: 4px; background: #fff; min-height: 160px; }
+.pharmacy-info { display: flex; flex-direction: column; gap: 4px; }
+.pharmacy-info strong { color: #17324d; font-size: 13px; }
+.pharmacy-info span { color: #80939c; font-size: 11px; }
+.pharmacy-info small { color: #a3b1b7; font-size: 10px; margin-top: 2px; }
+
+.pharmacy-stock { display: flex; flex-direction: column; gap: 4px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #edf2f4; }
+.stock-badge { display: inline-block; padding: 4px 8px; border-radius: 20px; font-size: 10px; font-weight: 800; width: fit-content; }
+.stock-good .stock-badge { color: #347e71; background: #e2f3ed; }
+.stock-low .stock-badge { color: #8a6a29; background: #fff8e1; }
+.stock-out .stock-badge { color: #9b5045; background: #fff1ef; }
+.stock-qty { color: #17324d; font-size: 12px; font-weight: 700; }
+.stock-date { color: #a3b1b7; font-size: 10px; }
+
+@media (max-width: 900px) {
+  .pharmacy-list { grid-template-columns: repeat(2, 1fr); }
 }
