@@ -1,0 +1,33 @@
+apps/web/src/App.tsx
+  s_720a4b383dbec1::t_9be9e51f4a6007 26,87
+apps/web/src/components/SlotList.tsx
+  s_720a4b383dbec1::t_b4649c688d591e 20-26,55,58,61,90
+apps/web/src/components/VoiceRecorder.tsx
+  s_720a4b383dbec1::t_f16480ee2ee061 2,15,29
+apps/web/src/services/api.ts
+  s_720a4b383dbec1::t_38045fcc9dabb9 1,38,44-45
+packages/types/src/index.ts
+  s_720a4b383dbec1::t_5cbf26f6588d7f 2
+packages/types/src/triage.ts
+  s_720a4b383dbec1::t_43d8cbd2fe297a 4-6,15
+services/worker/src/ai/vectorizeGuard.ts
+  s_720a4b383dbec1::t_37044b7884558a 11-17,20-21,27-28,34-35,41-42,48-49,56-66,68-69
+services/worker/src/index.ts
+  s_720a4b383dbec1::t_fcc598e3a03606 1,38-41,208-209,226
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "94c8f24296e867231d147fe912d10a37694abbce",
+  "prompts": {},
+  "sessions": {
+    "s_720a4b383dbec1": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0757098ecffe1wr8fCwbpzIuL2",
+        "model": "gpt-5.6-luna"
+      },
+      "human_author": "Arka Mondal <amondal@cloudflare.com>"
+    }
+  }
+}
