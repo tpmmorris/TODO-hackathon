@@ -8,41 +8,65 @@ interface GuidelineSignal {
   action: NonNullable<RedFlagResult['actionRequired']>;
 }
 
+/**
+ * Multilingual deterministic emergency patterns (English, Welsh, Polish).
+ *
+ * Patterns are written diacritic-free and matched against normalized input so
+ * they still fire when patients omit accents (e.g. "goraczka" for "gorączka").
+ * This guardrail must stay fail-closed: recall is favoured over precision.
+ */
 const localSignals: GuidelineSignal[] = [
   {
-    pattern: /chest pain|pressure in (my|the) chest|heart attack/i,
+    pattern:
+      /chest pain|pressure in (my|the) chest|heart attack|poen yn (y frest|fy mrest)|trawiad ar y galon|bol w klatce|za?wal serca|atak serca/i,
     severity: 'HIGH',
     guideline: 'NHS 111: possible cardiac emergency',
     action: '999_EMERGENCY'
   },
   {
-    pattern: /cannot breathe|can not breathe|can't breathe|difficulty breathing|severe breathlessness/i,
+    pattern:
+      /cannot breathe|can ?not breathe|can't breathe|difficulty breathing|severe breathlessness|methu anadlu|anhawster anadlu|trafferth anadlu|nie moge oddychac|trudnosci z oddychaniem|dusznosc/i,
     severity: 'HIGH',
     guideline: 'NHS 111: severe breathing difficulty',
     action: '999_EMERGENCY'
   },
   {
-    pattern: /unconscious|not responding|severe bleeding|stroke symptoms|face drooping|weakness on one side/i,
+    pattern:
+      /unconscious|not responding|severe bleeding|stroke symptoms|face drooping|weakness on one side|anymwybodol|gwaedu difrifol|stroc|wyneb yn llithro|nieprzytomny|nie reaguje|silne krwawienie|\budar\b|opadajacy kacik ust/i,
     severity: 'HIGH',
     guideline: 'NHS 111: immediate emergency symptoms',
     action: '999_EMERGENCY'
   },
   {
-    pattern: /overdose|taken too many|poisoned|suicid|harm myself|self harm/i,
+    pattern:
+      /overdose|taken too many|poisoned|suicid|harm myself|self harm|gorddos|gwenwyno|hunanladdiad|niweidio fy hun|hunan-?niwed|przedawkowanie|zatru(cie|ty)|samoboj|skrzywdzic sie|samookaleczenie/i,
     severity: 'HIGH',
     guideline: 'NHS 111: immediate safety support',
     action: '999_EMERGENCY'
   },
   {
-    pattern: /very high fever|confusion|dehydrated|vomiting blood|blood in stool/i,
+    pattern:
+      /very high fever|confusion|dehydrated|vomiting blood|blood in stool|twymyn uchel iawn|dryswch|dadhydradu|chwydu gwaed|gwaed yn y carthion|bardzo wysoka goraczka|dezorientacja|splatanie|odwodnienie|wymiot(y z|uje) krwia|krew w stolcu/i,
     severity: 'MEDIUM',
     guideline: 'NHS 111: urgent clinical assessment',
     action: '111_TRANSFER'
   }
 ];
 
+/**
+ * Lowercases via the `i` flag and strips diacritics so accent-free input still
+ * matches. `ł` is a distinct letter that NFD does not decompose, so map it too.
+ */
+function normalizeForMatch(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ł/gi, 'l');
+}
+
 function localCheck(text: string): RedFlagResult {
-  const signal = localSignals.find(({ pattern }) => pattern.test(text));
+  const normalized = normalizeForMatch(text);
+  const signal = localSignals.find(({ pattern }) => pattern.test(normalized));
   if (!signal) return { isRedFlag: false, severity: 'LOW', actionRequired: 'NONE' };
   return {
     isRedFlag: true,

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useI18n } from '../i18n';
 import { transcribeAudio } from '../services/api';
 
 interface VoiceRecorderProps {
@@ -11,6 +12,7 @@ type RecorderStatus = 'idle' | 'recording' | 'processing' | 'error';
 
 /** Browser microphone capture and Workers AI Whisper transcription boundary. */
 export function VoiceRecorder({ patientId, onTranscript, onError }: VoiceRecorderProps) {
+  const { lang } = useI18n();
   const [status, setStatus] = useState<RecorderStatus>('idle');
   const [message, setMessage] = useState('Use your voice instead');
   const stream = useRef<MediaStream | null>(null);
@@ -24,7 +26,7 @@ export function VoiceRecorder({ patientId, onTranscript, onError }: VoiceRecorde
     recorder.current = null;
     if (audio.size === 0) throw new Error('No audio was captured from the microphone');
     setMessage('Processing your symptoms...');
-    const transcript = await transcribeAudio(audio, patientId);
+    const transcript = await transcribeAudio(audio, patientId, lang);
     onTranscript(transcript);
     setStatus('idle');
       setMessage('Your words were added to symptoms');

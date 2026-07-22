@@ -1,4 +1,4 @@
-import type { TriageRequest } from '@gpnow/types';
+import type { PatientLanguage, TriageRequest } from '@gpnow/types';
 import { transcribeAudio } from './ai/llamaTriage';
 import { getNearbySlots, getPractices, getPracticesByLocation, saveTriageLog } from './data/d1Db';
 import { getPrescribingSummary } from './data/openPrescribing';
@@ -33,6 +33,10 @@ interface CallsTracksResponse {
 
 interface IceServersResponse {
   iceServers?: unknown;
+}
+
+function toPatientLanguage(value: unknown): PatientLanguage | undefined {
+  return value === 'en' || value === 'cy' || value === 'pl' ? value : undefined;
 }
 
 function json(data: unknown, status = 200): Response {
@@ -201,7 +205,8 @@ async function route(request: Request, env: Env): Promise<Response> {
     const contentType = request.headers.get('content-type') ?? '';
     if (!contentType.startsWith('audio/')) return json({ error: 'An audio payload is required' }, 415);
     const audio = await request.arrayBuffer();
-    const text = await transcribeAudio(audio, env);
+    const language = toPatientLanguage(request.headers.get('x-language'));
+    const text = await transcribeAudio(audio, env, language);
     return json({ text });
   }
 
@@ -218,6 +223,7 @@ async function route(request: Request, env: Env): Promise<Response> {
       registeredOdsCode: body.registeredOdsCode,
       latitude: body.latitude,
       longitude: body.longitude,
+      language: toPatientLanguage(body.language),
       consentToProcess: true
     };
     const response = await executeTriage(triageRequest, env);
