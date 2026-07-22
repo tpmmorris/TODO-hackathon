@@ -19,7 +19,9 @@ pnpm db:init
 pnpm dev:worker
 ```
 
-The Worker runs at `http://localhost:8787` and the Vite development server proxies `/api` to it. The local AI binding uses remote Workers AI and Vectorize is not supported locally; service errors are surfaced as hard errors. The deterministic red-flag guardrail is the only intentional safety fallback.
+The Worker runs at `http://localhost:8787` and the Vite development server proxies `/api` to it. In deployed mode, the Worker serves the SPA and API from one hostname. The local AI binding uses remote Workers AI and Vectorize is not supported locally; service errors are surfaced as hard errors. The deterministic red-flag guardrail is the only intentional safety fallback.
+
+The deployed demo is served from the Worker hostname so Cloudflare Access authentication covers both the SPA and its `/api` requests. Open `https://gpnow-worker.amondal-individual-account.workers.dev/`; the separate Pages deployment is not the primary URL when SSO is enabled.
 
 Useful commands:
 
@@ -46,7 +48,7 @@ The repository is intentionally split so four developers can work independently 
 ## Cloudflare Architecture
 
 - **Workers AI:** Whisper transcription and Llama 3 symptom summarisation are isolated in `ai/llamaTriage.ts`.
-- **Cloudflare Calls:** `apps/web/src/services/cloudflareCalls.ts` publishes microphone audio through a configured WebRTC signaling proxy. A configured Calls signaling endpoint is required for voice sessions.
+- **Voice transcription:** `VoiceRecorder.tsx` captures browser audio and sends it to Workers AI Whisper through `/api/transcribe`. `cloudflareCalls.ts` remains available for an optional realtime mode, but SFU/TURN is not required for the primary voice flow.
 - **Vectorize:** `ai/vectorizeGuard.ts` embeds symptom text and checks the `nhs-111-guidelines` index. Local, deterministic red-flag patterns fail closed when the index is empty or unavailable.
 - **Workflows:** `TriageWorkflow` sequences the clinical safety check and slot aggregation with durable step boundaries.
 - **Durable Objects:** `SlotLockDO` exposes a WebSocket lock engine for short-lived appointment holds and broadcasts state changes to connected clients.
@@ -70,14 +72,18 @@ The `database_id` is intentionally `mock-id` in this hackathon scaffold. Replace
 - `GET /api/health`
 - `GET /api/practices`
 - `GET /api/slots?odsCode=G82001`
+- `POST /api/transcribe` with consent headers and a raw audio body
 - `POST /api/triage` with `{ patientId, symptoms, odsCode, consentToProcess }`
+- `GET /api/calls/ice-servers` for short-lived TURN ICE credentials
 - `POST /api/calls/offer` with a browser WebRTC offer and audio track `mid`
 
-The frontend API client does not provide mock practices, slots, or triage responses. Worker, D1, signaling, and AI errors must be fixed and are surfaced to the user or returned as HTTP errors.
+The frontend API client uses same-origin `/api` requests by default. It does not provide mock practices, slots, or triage responses. Worker, D1, signaling, and AI errors must be fixed and are surfaced to the user or returned as HTTP errors.
 
-Set `VITE_CALLS_SIGNALING_URL` to a Calls signaling proxy before starting the web app. The proxy must accept a local SDP offer and return `{ type, sdp }` for the Calls answer; no Calls API token is exposed to the browser.
+Voice sessions record the connected microphone stream, send the audio to `/api/transcribe`, and write the Workers AI Whisper transcript into the symptom field. Transcription requires `x-consent-to-process: true` and `x-patient-id` headers; audio is not silently discarded or replaced with generated text.
 
-For local Realtime SFU testing, create `apps/web/.env.local` with `VITE_CALLS_SIGNALING_URL=http://localhost:8787/api/calls/offer` and `VITE_CALLS_ICE_SERVERS_URL=http://localhost:8787/api/calls/ice-servers`. Keep the Realtime App ID, App Secret, TURN Token ID, and TURN API token in `services/worker/.dev.vars`; use `services/worker/.dev.vars.example` as the shape, and never place secrets in frontend environment variables. The Worker creates the Realtime session and short-lived TURN credentials server-side.
+The primary voice flow does not require Calls or TURN environment variables. It captures audio locally and sends the recording to the same-origin `/api/transcribe` endpoint.
+
+For optional Realtime SFU testing, create `apps/web/.env.local` with `VITE_CALLS_SIGNALING_URL=http://localhost:8787/api/calls/offer` and `VITE_CALLS_ICE_SERVERS_URL=http://localhost:8787/api/calls/ice-servers`. Keep the Realtime App ID, App Secret, TURN Token ID, and TURN API token in `services/worker/.dev.vars`; use `services/worker/.dev.vars.example` as the shape, and never place secrets in frontend environment variables.
 
 If the browser reports ICE error `701` or times out while gathering candidates, disable Cloudflare WARP or another VPN while testing locally. WARP can intercept the network interfaces used by WebRTC ICE.
 

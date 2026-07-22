@@ -1,14 +1,16 @@
-import type { FHIRSlot, TriageRequest } from '@gpnow/types';
-import { checkRedFlags } from './ai/vectorizeGuard';
-import { getNearbyPharmacies, getNearbySlots, getPractices, getPracticesByLocation, getWalkInAndUrgentCareSlots, saveTriageLog } from './data/d1Db';
-import { createSbarReport } from './data/r2Storage';
+import type { TriageRequest } from '@gpnow/types';
+import { transcribeAudio } from './ai/llamaTriage';
+import { getNearbySlots, getPractices, getPracticesByLocation, saveTriageLog } from './data/d1Db';
+import { getPrescribingSummary } from './data/openPrescribing';
 import type { Env } from './env';
 import { geocodePostcode } from './lib/geo';
+import { executeCareOptions } from './orchestration/careOptionsWorkflow';
+import { executeTriage } from './orchestration/triageWorkflow';
 
 export { SlotLockDO } from './orchestration/slotLockDO';
+export { CareOptionsWorkflow } from './orchestration/careOptionsWorkflow';
 export { TriageWorkflow } from './orchestration/triageWorkflow';
 
-const disclaimer = 'This service supports care navigation and is not a diagnosis. Call 999 for a life-threatening emergency.';
 const realtimeApi = 'https://rtc.live.cloudflare.com/v1';
 
 interface SessionDescription {
@@ -135,14 +137,6 @@ async function getTurnCredentials(env: Env): Promise<Response> {
 async function route(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   if (request.method === 'OPTIONS') return new Response(null, { status: 204 });
-  if (url.pathname === '/' && request.method === 'GET') {
-    return json({
-      service: 'gpnow-worker',
-      status: 'ok',
-      message: 'Worker API is running. Open http://localhost:5173 for the GPNow UI.',
-      endpoints: ['/api/health', '/api/practices', '/api/slots', '/api/triage', '/api/calls/ice-servers', '/api/calls/offer', '/api/pharmacy-stock']
-    });
-  }
   if (url.pathname === '/api/health') return json({ service: 'gpnow-worker', status: 'ok' });
 
   if (url.pathname === '/api/practices' && request.method === 'GET') {
@@ -174,15 +168,41 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (url.pathname === '/api/pharmacy-stock' && request.method === 'GET') {
     const postcode = url.searchParams.get('postcode');
     const medicine = url.searchParams.get('medicine') ?? '';
-    const radiusKm = parseFloat(url.searchParams.get('radiusKm') ?? '5');
 
     if (!postcode || !medicine.trim()) {
       return json({ error: 'postcode and medicine are required' }, 400);
     }
 
-    const { latitude, longitude } = await geocodePostcode(postcode);
-    const pharmacies = await getNearbyPharmacies(latitude, longitude, medicine, radiusKm, env);
-    return json(pharmacies);
+    const careOptions = await executeCareOptions({ postcode, medicine }, env);
+    return json(careOptions.pharmacies);
+  }
+
+  if (url.pathname === '/api/care-options' && request.method === 'GET') {
+    const postcode = url.searchParams.get('postcode');
+    if (!postcode?.trim()) return json({ error: 'postcode is required' }, 400);
+    return json(await executeCareOptions({
+      postcode,
+      registeredOdsCode: url.searchParams.get('registeredOdsCode') ?? undefined,
+      medicine: url.searchParams.get('medicine') ?? undefined,
+      includePrescribing: url.searchParams.get('includePrescribing') === 'true'
+    }, env));
+  }
+
+  if (url.pathname === '/api/prescribing' && request.method === 'GET') {
+    const odsCode = url.searchParams.get('odsCode');
+    if (!odsCode?.trim()) return json({ error: 'odsCode is required' }, 400);
+    return json(await getPrescribingSummary(odsCode));
+  }
+
+  if (url.pathname === '/api/transcribe' && request.method === 'POST') {
+    if (request.headers.get('x-consent-to-process') !== 'true' || !request.headers.get('x-patient-id')) {
+      return json({ error: 'Patient identity and consent are required for transcription' }, 400);
+    }
+    const contentType = request.headers.get('content-type') ?? '';
+    if (!contentType.startsWith('audio/')) return json({ error: 'An audio payload is required' }, 415);
+    const audio = await request.arrayBuffer();
+    const text = await transcribeAudio(audio, env);
+    return json({ text });
   }
 
   if (url.pathname === '/api/triage' && request.method === 'POST') {
@@ -200,51 +220,13 @@ async function route(request: Request, env: Env): Promise<Response> {
       longitude: body.longitude,
       consentToProcess: true
     };
-    const redFlag = await checkRedFlags(triageRequest.symptoms, env);
-
-    // Collect slots from registered GP (if any) AND all walk-in/urgent care
-    const slotPromises: Promise<FHIRSlot[]>[] = [];
-
-    if (triageRequest.registeredOdsCode) {
-      slotPromises.push(getNearbySlots(triageRequest.registeredOdsCode, env));
-    }
-
-    // Walk-in and urgent care are always shown because they do not require registration
-    slotPromises.push(getWalkInAndUrgentCareSlots(env));
-
-    const slotArrays = await Promise.all(slotPromises);
-    const slots = slotArrays.flat().sort(
-      (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
-    );
-
-    const actionRequired = redFlag.actionRequired ?? 'NONE';
-    const status = redFlag.actionRequired === '999_EMERGENCY'
-      ? 'REQUIRES_EMERGENCY_CARE'
-      : redFlag.actionRequired === '111_TRANSFER'
-        ? 'TRANSFERRED_TO_111'
-        : 'READY_TO_BOOK';
-    const report = createSbarReport(
-      triageRequest.patientId,
-      triageRequest.symptoms,
-      actionRequired === 'NONE' ? 'Offer a suitable GP appointment.' : actionRequired
-    );
-    const response = {
-      requestId: crypto.randomUUID(),
-      redFlag,
-      slots,
-      report,
-      status,
-      disclaimer
-    } as const;
-    try {
-      await saveTriageLog(triageRequest, JSON.stringify(response), env);
-    } catch {
-      // Logging must not block a safety response when D1 is unavailable locally.
-    }
+    const response = await executeTriage(triageRequest, env);
+    await saveTriageLog(triageRequest, JSON.stringify(response), env);
     return json(response);
   }
 
-  return json({ error: 'Not found' }, 404);
+  if (url.pathname.startsWith('/api/')) return json({ error: 'Not found' }, 404);
+  return env.ASSETS.fetch(request);
 }
 
 export default {

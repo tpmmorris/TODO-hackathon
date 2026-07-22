@@ -38,7 +38,7 @@ The directory split is intentional and exists to minimize merge collisions betwe
 
 | Developer | Owns | Responsibilities |
 | --- | --- | --- |
-| 1 | `apps/web/` | React UI, Leaflet map, voice interface, Cloudflare Calls WebRTC client, API client |
+| 1 | `apps/web/` | React UI, Leaflet map, voice interface, optional Cloudflare Calls WebRTC client, API client |
 | 2 | `services/worker/src/ai/` | Workers AI, Whisper, Llama 3, Vectorize red-flag guardrail, prompts |
 | 3 | `services/worker/src/orchestration/` | `TriageWorkflow`, `SlotLockDO`, Workflow state, WebSocket slot locks |
 | 4 | `services/worker/src/data/` | D1 queries, R2 reports/audio, NHS ODS, OpenPrescribing |
@@ -104,19 +104,20 @@ services/worker/schema.sql
 
 ## Worker API
 
-The Worker is an API and does not serve the frontend HTML.
+The Worker serves the frontend SPA assets and API from one hostname in deployed mode. Vite serves the same frontend separately during local development.
 
-- `GET /` returns Worker status and local UI guidance.
+- `GET /` serves the GPNow frontend in deployed mode.
 - `GET /api/health` returns service health.
 - `GET /api/practices` returns D1-backed practices.
 - `GET /api/slots?odsCode=G82001` returns free FHIR slot projections.
+- `POST /api/transcribe` accepts a consented raw audio payload and returns a Workers AI Whisper transcript.
 - `POST /api/triage` accepts a consented `TriageRequest` and returns red-flag status, slots, an SBAR report, and a care-navigation status.
 - `GET /api/calls/ice-servers` generates short-lived Cloudflare TURN ICE credentials server-side.
 - `POST /api/calls/offer` accepts a browser SDP offer and audio track `mid`, creates a Cloudflare Realtime SFU session, and returns the SDP answer.
 
 The Worker has permissive CORS for hackathon development. Tighten origins and authentication before production use.
 
-The frontend API client uses `/api` through Vite's development proxy. It does not provide mock practices, slots, or triage responses; Worker and API errors must be surfaced to the user.
+The frontend API client uses same-origin `/api` requests by default and Vite's development proxy locally. It does not provide mock practices, slots, or triage responses; Worker and API errors must be surfaced to the user.
 
 ## Cloudflare Bindings
 
@@ -183,7 +184,7 @@ The web app is a split-pane dashboard:
 
 `PracticeMap.tsx` uses Leaflet and OpenStreetMap tiles. Keep map cleanup in the React effect to avoid duplicate maps during Vite hot reload.
 
-`VoiceRecorder.tsx` captures microphone audio for a real Cloudflare Calls session. `services/cloudflareCalls.ts` requires a configured WebRTC signaling proxy through `VITE_CALLS_SIGNALING_URL`. The browser must never receive a Cloudflare Calls API token.
+`VoiceRecorder.tsx` captures microphone audio and sends it to `/api/transcribe` for Workers AI Whisper transcription, then writes the returned transcript into the symptom field. `services/cloudflareCalls.ts` remains an optional realtime mode. The browser must never receive a Cloudflare Calls API token.
 
 The UI is prototype-oriented but must remain usable on desktop and mobile. Preserve the existing visual language unless a deliberate design change is requested.
 
@@ -211,6 +212,8 @@ pnpm dev
 
 Open the UI at `http://localhost:5173`. The Worker is at `http://localhost:8787`.
 
+In deployed mode, serve the SPA and API from the Worker hostname when Cloudflare Access protects the account. This keeps authenticated browser requests same-origin and avoids Access login redirects being blocked by CORS.
+
 Run services separately when debugging:
 
 ```bash
@@ -229,8 +232,8 @@ Local Wrangler behavior:
 Optional frontend environment variables:
 
 - `VITE_API_BASE_URL` changes the Worker API base URL.
-- `VITE_CALLS_SIGNALING_URL` is required for the Cloudflare Calls WebRTC signaling boundary.
-- `VITE_CALLS_ICE_SERVERS_URL` is required for short-lived TURN ICE credentials.
+- `VITE_CALLS_SIGNALING_URL` is only required for the optional Cloudflare Calls WebRTC mode.
+- `VITE_CALLS_ICE_SERVERS_URL` is only required for the optional short-lived TURN ICE credential flow.
 
 Cloudflare WARP or another VPN can cause local browser ICE error `701` and candidate-gathering timeouts. Disable it while testing WebRTC locally.
 

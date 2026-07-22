@@ -32,3 +32,9 @@ export interface PharmacyWithStock {
   stock: Record<string, { quantity: number; lastChecked: string }>;
   distanceKm?: number;
 }
+
+export interface PrescribingActivity {
+  organisation: string;
+  month: string;
+  items: Array<{ bnfCode: string; items: number; cost: number }>;
+}

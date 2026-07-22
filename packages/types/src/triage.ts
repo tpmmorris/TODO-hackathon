@@ -23,9 +23,18 @@ export interface RedFlagResult {
   actionRequired?: RedFlagAction;
 }
 
+export type TriageUrgency = 'ROUTINE' | 'SOON' | 'URGENT';
+
+export interface TriageRecommendation {
+  summary: string;
+  urgency: TriageUrgency;
+  suggestedAction: string;
+}
+
 export interface TriageResponse {
   requestId: string;
   redFlag: RedFlagResult;
+  recommendation: TriageRecommendation;
   slots: FHIRSlot[];
   report?: SBARReport;
   status: 'REQUIRES_EMERGENCY_CARE' | 'TRANSFERRED_TO_111' | 'READY_TO_BOOK';
