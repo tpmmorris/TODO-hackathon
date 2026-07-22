@@ -12,6 +12,8 @@
     "format": "prettier --write .",
     "typecheck": "pnpm --recursive --if-present run typecheck",
     "db:init": "pnpm --filter @gpnow/worker db:init",
+    "db:seed:remote": "python3 scripts/seed_demo_data.py --target remote",
+    "db:seed:local": "python3 scripts/seed_demo_data.py --target local",
     "deploy:worker": "pnpm --filter @gpnow/worker deploy",
     "deploy:web": "pnpm --filter @gpnow/web deploy",
     "deploy": "pnpm build && pnpm deploy:worker && pnpm deploy:web"

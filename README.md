@@ -30,6 +30,8 @@ pnpm dev             # Run web and Worker in parallel
 pnpm build           # Build every package and application
 pnpm typecheck       # Type-check every workspace
 pnpm db:init         # Apply services/worker/schema.sql to local D1
+pnpm db:seed:remote  # Populate remote D1 with synthetic demo care data
+pnpm db:seed:local   # Populate local D1 with the same demo data
 ```
 
 ## Workspace Boundaries
