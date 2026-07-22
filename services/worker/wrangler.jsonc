@@ -1,0 +1,50 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "gpnow-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-22",
+  "compatibility_flags": ["nodejs_compat"],
+  "ai": {
+    "binding": "AI"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "gpnow-db",
+      "database_id": "mock-id"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "REPORTS_BUCKET",
+      "bucket_name": "gpnow-sbar-reports"
+    }
+  ],
+  "vectorize": [
+    {
+      "binding": "VECTOR_INDEX",
+      "index_name": "nhs-111-guidelines"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "SLOT_LOCK_DO",
+        "class_name": "SlotLockDO"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_classes": ["SlotLockDO"]
+    }
+  ],
+  "workflows": [
+    {
+      "name": "triage-workflow",
+      "binding": "TRIAGE_WORKFLOW",
+      "class_name": "TriageWorkflow"
+    }
+  ]
+}

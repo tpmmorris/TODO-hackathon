@@ -1,0 +1,20 @@
+{
+  "name": "gpnow",
+  "private": true,
+  "version": "0.1.0",
+  "description": "GPNow - AI-assisted healthcare pre-triage and GP slot aggregation",
+  "packageManager": "pnpm@9.15.5",
+  "scripts": {
+    "build": "pnpm --recursive --if-present run build",
+    "dev": "pnpm --parallel --filter @gpnow/web --filter @gpnow/worker dev",
+    "dev:web": "pnpm --filter @gpnow/web dev",
+    "dev:worker": "pnpm --filter @gpnow/worker dev",
+    "format": "prettier --write .",
+    "typecheck": "pnpm --recursive --if-present run typecheck",
+    "db:init": "pnpm --filter @gpnow/worker db:init"
+  },
+  "devDependencies": {
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.2"
+  }
+}
