@@ -1,10 +1,18 @@
 import { useState } from 'react';
 import type { PharmacyWithStock } from '@gpnow/types';
+import { useI18n } from '../i18n';
+import type { Language } from '../i18n/translations';
 import { getPharmacyStock } from '../services/api';
 
 interface PharmacyStockProps {
   postcode: string;
 }
+
+const localeMap: Record<Language, string> = {
+  en: 'en-GB',
+  cy: 'cy-GB',
+  pl: 'pl-PL'
+};
 
 function stockLevelClass(quantity: number): string {
   if (quantity === 0) return 'stock-out';
@@ -12,17 +20,18 @@ function stockLevelClass(quantity: number): string {
   return 'stock-good';
 }
 
-function stockLabel(quantity: number): string {
-  if (quantity === 0) return 'Out of stock';
-  if (quantity <= 10) return 'Low stock';
-  return 'In stock';
-}
-
 export function PharmacyStock({ postcode }: PharmacyStockProps) {
+  const { t, lang } = useI18n();
   const [medicine, setMedicine] = useState('');
   const [results, setResults] = useState<PharmacyWithStock[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+
+  function stockLabel(quantity: number): string {
+    if (quantity === 0) return t('pharmacy.outOfStock');
+    if (quantity <= 10) return t('pharmacy.lowStock');
+    return t('pharmacy.inStock');
+  }
 
   async function search() {
     if (!medicine.trim() || !postcode.trim()) return;
@@ -42,8 +51,8 @@ export function PharmacyStock({ postcode }: PharmacyStockProps) {
     <section className="pharmacy-panel" aria-labelledby="pharmacy-title">
       <div className="section-heading">
         <div>
-          <span className="eyebrow">Medication availability</span>
-          <h2 id="pharmacy-title">Check nearby pharmacy stock</h2>
+          <span className="eyebrow">{t('pharmacy.eyebrow')}</span>
+          <h2 id="pharmacy-title">{t('pharmacy.title')}</h2>
         </div>
       </div>
 
@@ -52,18 +61,18 @@ export function PharmacyStock({ postcode }: PharmacyStockProps) {
           type="text"
           value={medicine}
           onChange={(e) => setMedicine(e.target.value)}
-          placeholder="e.g. paracetamol, ibuprofen..."
-          aria-label="Medicine name"
+          placeholder={t('pharmacy.placeholder')}
+          aria-label={t('pharmacy.placeholder')}
         />
         <button type="button" onClick={search} disabled={loading || !medicine.trim()}>
-          {loading ? 'Searching...' : 'Search'}
+          {loading ? t('pharmacy.searching') : t('pharmacy.search')}
         </button>
       </div>
 
-      {!searched && <p className="empty-state">Enter a medicine name to see stock at nearby pharmacies.</p>}
+      {!searched && <p className="empty-state">{t('pharmacy.prompt')}</p>}
 
       {searched && results.length === 0 && !loading && (
-        <p className="empty-state">No pharmacies found with that medicine in stock nearby.</p>
+        <p className="empty-state">{t('pharmacy.noResults')}</p>
       )}
 
       <div className="pharmacy-list">
@@ -73,8 +82,8 @@ export function PharmacyStock({ postcode }: PharmacyStockProps) {
           );
           const quantity = matchedMedicine?.[1].quantity ?? 0;
           const lastChecked = matchedMedicine?.[1].lastChecked
-            ? new Date(matchedMedicine[1].lastChecked).toLocaleDateString('en-GB')
-            : 'Unknown';
+            ? new Date(matchedMedicine[1].lastChecked).toLocaleDateString(localeMap[lang])
+            : '—';
 
           return (
             <article className="pharmacy-card" key={pharmacy.pharmacyId}>
@@ -82,13 +91,13 @@ export function PharmacyStock({ postcode }: PharmacyStockProps) {
                 <strong>{pharmacy.name}</strong>
                 <span>{pharmacy.address}</span>
                 {pharmacy.distanceKm !== undefined && (
-                  <small>{pharmacy.distanceKm.toFixed(1)} km away</small>
+                  <small>{t('location.kmAway', { n: pharmacy.distanceKm.toFixed(1) })}</small>
                 )}
               </div>
               <div className={`pharmacy-stock ${stockLevelClass(quantity)}`}>
                 <span className="stock-badge">{stockLabel(quantity)}</span>
-                <span className="stock-qty">{quantity} units</span>
-                <span className="stock-date">Updated {lastChecked}</span>
+                <span className="stock-qty">{t('pharmacy.units', { n: quantity })}</span>
+                <span className="stock-date">{t('pharmacy.updated', { date: lastChecked })}</span>
               </div>
             </article>
           );

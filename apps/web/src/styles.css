@@ -17,6 +17,11 @@ button { cursor: pointer; }
 .brand-mark { display: grid; width: 29px; height: 29px; place-items: center; border-radius: 9px; color: white; background: #e86a33; font-size: 23px; line-height: 1; }
 .topbar-meta { display: flex; gap: 10px; align-items: center; color: #6f8492; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
 .secure-dot { width: 7px; height: 7px; border-radius: 50%; background: #45a78e; box-shadow: 0 0 0 4px #e1f2ed; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.language-selector { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid #d5e0e6; border-radius: 999px; background: #fff; }
+.language-icon { font-size: 14px; line-height: 1; }
+.language-selector select { border: 0; background: transparent; color: #17324d; font-size: 12px; font-weight: 600; letter-spacing: .02em; text-transform: none; cursor: pointer; appearance: auto; }
+.language-selector select:focus { outline: none; }
 .profile-button { margin-left: 18px; border: 0; border-radius: 50%; width: 38px; height: 38px; color: #fff; background: #17324d; font-size: 12px; font-weight: 700; }
 .hero { display: flex; align-items: end; justify-content: space-between; padding: 62px 0 48px; }
 .eyebrow { display: block; color: #1f7a8c; font-size: 11px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }

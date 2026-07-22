@@ -46,5 +46,8 @@
       "binding": "TRIAGE_WORKFLOW",
       "class_name": "TriageWorkflow"
     }
-  ]
+  ],
+  "vars": {
+    "ENVIRONMENT": "production"
+  }
 }

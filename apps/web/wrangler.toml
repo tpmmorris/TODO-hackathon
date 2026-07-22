@@ -1,0 +1,10 @@
+name = "gpnow-web"
+compatibility_date = "2026-07-22"
+
+# Cloudflare Pages configuration
+# Build command: pnpm build
+# Build output directory: dist
+
+[env.production]
+# Environment variables should be set in the Cloudflare Dashboard:
+# VITE_API_BASE_URL = "https://your-worker-domain.workers.dev"

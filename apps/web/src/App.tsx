@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import type { FHIRSlot, Practice, RedFlagResult, TriageResponse } from '@gpnow/types';
 import { EmergencyModal } from './components/EmergencyModal';
+import { LanguageSelector } from './components/LanguageSelector';
 import { PharmacyStock } from './components/PharmacyStock';
 import { PracticeMap } from './components/PracticeMap';
 import { SlotList } from './components/SlotList';
 import { VoiceRecorder } from './components/VoiceRecorder';
+import { useI18n } from './i18n';
 import { getPractices, getSlots, submitTriage } from './services/api';
-
-const defaultSymptoms = 'Tell us what is happening, including when it started...';
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'The request failed';
@@ -16,6 +16,7 @@ function getErrorMessage(error: unknown): string {
 type Tab = 'appointments' | 'pharmacy';
 
 export default function App() {
+  const { t } = useI18n();
   const [practices, setPractices] = useState<Practice[]>([]);
   const [slots, setSlots] = useState<FHIRSlot[]>([]);
   const [selectedPractice, setSelectedPractice] = useState<Practice>();
@@ -65,7 +66,7 @@ export default function App() {
 
   async function runTriage() {
     if (!symptoms.trim()) {
-      setNotice('Add a few details before starting triage.');
+      setNotice(t('triage.addDetails'));
       return;
     }
     setNotice('');
@@ -101,7 +102,7 @@ export default function App() {
   }
 
   function bookSlot(slot: FHIRSlot) {
-    setNotice(`${slot.practitionerRole} appointment held for 10 minutes. Booking handoff is next.`);
+    setNotice(t('slots.booked', { role: slot.practitionerRole }));
   }
 
   function handlePostcodeSubmit(event: React.FormEvent) {
@@ -118,7 +119,8 @@ export default function App() {
         </a>
         <div className="topbar-meta">
           <span className="secure-dot" />
-          Prototype mode
+          {t('topbar.mode')}
+          <LanguageSelector />
           <button type="button" className="profile-button" aria-label="Open profile">
             JD
           </button>
@@ -127,92 +129,92 @@ export default function App() {
 
       <section className="hero">
         <div>
-          <span className="eyebrow">Cambridgeshire care navigator</span>
-          <h1>Care, sooner.</h1>
-          <p>Describe how you feel. GPNow checks urgency first, then finds the right appointment nearby.</p>
+          <span className="eyebrow">{t('hero.eyebrow')}</span>
+          <h1>{t('hero.title')}</h1>
+          <p>{t('hero.subtitle')}</p>
         </div>
         <div className="hero-stat">
           <strong>4.8 min</strong>
-          <span>average to first option</span>
+          <span>{t('hero.statLabel')}</span>
         </div>
       </section>
 
       <section className="dashboard-grid">
         <div className="triage-column">
           <div className="progress-row">
-            <span className="step active"><b>1</b> Your symptoms</span>
+            <span className="step active"><b>1</b> {t('progress.step1')}</span>
             <span className="progress-line" />
-            <span className="step"><b>2</b> Your options</span>
+            <span className="step"><b>2</b> {t('progress.step2')}</span>
           </div>
           <section className="triage-card">
             <div className="card-header">
               <div>
-                <span className="eyebrow">Private and secure</span>
-                <h2>How are you feeling?</h2>
+                <span className="eyebrow">{t('triage.eyebrow')}</span>
+                <h2>{t('triage.title')}</h2>
               </div>
               <span className="shield">◆</span>
             </div>
-            <p className="helper-text">Share as much as you can. Our clinical safety layer will check for anything urgent.</p>
+            <p className="helper-text">{t('triage.helper')}</p>
             <textarea
               value={symptoms}
               onChange={(event) => setSymptoms(event.target.value)}
-              placeholder={defaultSymptoms}
+              placeholder={t('triage.placeholder')}
               rows={6}
-              aria-label="Describe your symptoms"
+              aria-label={t('triage.title')}
             />
             <div className="input-footer">
-              <span>{symptoms.length}/1,000 characters</span>
+              <span>{t('triage.characters', { n: symptoms.length })}</span>
               <VoiceRecorder onError={setNotice} />
             </div>
             {loadError && <p className="notice error-notice">{loadError}</p>}
             {notice && <p className="notice">{notice}</p>}
             <button className="primary-button" type="button" onClick={runTriage} disabled={triaging}>
-              {triaging ? 'Checking safely...' : 'Find the right care'}
+              {triaging ? t('triage.checking') : t('triage.findCare')}
               <span>→</span>
             </button>
-            <p className="legal-copy">Not a diagnosis. If you feel seriously unwell, call 999.</p>
+            <p className="legal-copy">{t('triage.legal')}</p>
           </section>
           <div className="trust-row">
-            <span>Protected by clinical guardrails</span>
-            <span>Data stays in the UK</span>
-            <span>Built for NHS pathways</span>
+            <span>{t('trust.guardrails')}</span>
+            <span>{t('trust.dataUk')}</span>
+            <span>{t('trust.nhs')}</span>
           </div>
         </div>
 
         <div className="location-column">
           <div className="location-heading">
             <div>
-              <span className="eyebrow">Step 2</span>
-              <h2>Nearby practices</h2>
+              <span className="eyebrow">{t('location.step')}</span>
+              <h2>{t('location.title')}</h2>
             </div>
             <form className="postcode-form" onSubmit={handlePostcodeSubmit}>
               <input
                 type="text"
                 value={postcode}
                 onChange={(e) => setPostcode(e.target.value)}
-                placeholder="Enter postcode"
-                aria-label="Postcode"
+                placeholder={t('location.postcodePlaceholder')}
+                aria-label={t('location.postcodePlaceholder')}
               />
-              <button type="submit">Search</button>
+              <button type="submit">{t('location.search')}</button>
             </form>
           </div>
           <div className="map-frame">
-            {loading ? <div className="map-loading">Loading local care network...</div> : <PracticeMap practices={practices} selectedOdsCode={selectedPractice?.odsCode} onSelect={selectPractice} />}
+            {loading ? <div className="map-loading">{t('location.loading')}</div> : <PracticeMap practices={practices} selectedOdsCode={selectedPractice?.odsCode} onSelect={selectPractice} />}
           </div>
           <div className="practice-strip">
             {selectedPractice ? (
               <div>
-                <span className="eyebrow">Selected practice</span>
+                <span className="eyebrow">{t('location.selected')}</span>
                 <strong>{selectedPractice.name}</strong>
                 <span>{selectedPractice.address}</span>
                 {selectedPractice.distanceKm !== undefined && (
-                  <small>{selectedPractice.distanceKm.toFixed(1)} km away</small>
+                  <small>{t('location.kmAway', { n: selectedPractice.distanceKm.toFixed(1) })}</small>
                 )}
               </div>
             ) : (
-              <span>Select a practice on the map</span>
+              <span>{t('location.selectPrompt')}</span>
             )}
-            <span className="open-pill">Open today</span>
+            <span className="open-pill">{t('location.openToday')}</span>
           </div>
         </div>
       </section>
@@ -223,14 +225,14 @@ export default function App() {
           className={activeTab === 'appointments' ? 'tab-active' : ''}
           onClick={() => setActiveTab('appointments')}
         >
-          Appointments
+          {t('tabs.appointments')}
         </button>
         <button
           type="button"
           className={activeTab === 'pharmacy' ? 'tab-active' : ''}
           onClick={() => setActiveTab('pharmacy')}
         >
-          Pharmacy Stock
+          {t('tabs.pharmacy')}
         </button>
       </div>
 
@@ -238,15 +240,15 @@ export default function App() {
         <>
           <div className="registration-bar">
             <label htmlFor="registered-gp">
-              <span>Your registered GP:</span>
+              <span>{t('registration.label')}</span>
               <select
                 id="registered-gp"
                 value={registeredOdsCode}
                 onChange={(e) => setRegisteredOdsCode(e.target.value)}
                 disabled={loading || practices.length === 0}
-                aria-label="Select your registered GP"
+                aria-label={t('registration.label')}
               >
-                <option value="">I am not registered / not sure</option>
+                <option value="">{t('registration.notRegistered')}</option>
                 {practices
                   .filter((p) => p.type === 'GP')
                   .map((p) => (
@@ -258,12 +260,12 @@ export default function App() {
             </label>
             <p className="registration-hint">
               {loading
-                ? 'Loading nearby practices...'
+                ? t('registration.loading')
                 : practices.filter((p) => p.type === 'GP').length === 0
-                  ? 'No GP practices found in this area.'
+                  ? t('registration.noGp')
                   : registeredOdsCode
-                    ? 'Appointments at your registered GP are bookable. Walk-in and urgent care options are always shown.'
-                    : 'Walk-in centres and urgent care do not require registration.'}
+                    ? t('registration.registeredHint')
+                    : t('registration.walkInHint')}
             </p>
           </div>
           <SlotList slots={slots} registeredOdsCode={registeredOdsCode} onBook={bookSlot} />
@@ -271,7 +273,7 @@ export default function App() {
       )}
       {activeTab === 'pharmacy' && <PharmacyStock postcode={postcode} />}
 
-      {result && !emergency && <p className="result-note">Safety check complete. {result.disclaimer}</p>}
+      {result && !emergency && <p className="result-note">{t('result.complete')} {result.disclaimer}</p>}
       {emergency && <EmergencyModal result={emergency} onClose={() => setEmergency(undefined)} />}
     </main>
   );

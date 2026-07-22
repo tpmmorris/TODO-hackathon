@@ -1,4 +1,6 @@
 import type { FHIRSlot } from '@gpnow/types';
+import { useI18n } from '../i18n';
+import type { Language } from '../i18n/translations';
 
 interface SlotListProps {
   slots: FHIRSlot[];
@@ -6,45 +8,53 @@ interface SlotListProps {
   onBook: (slot: FHIRSlot) => void;
 }
 
-function formatSlot(startTime: string) {
-  return new Intl.DateTimeFormat('en-GB', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(new Date(startTime));
-}
-
-function locationTypeLabel(type: FHIRSlot['locationType']): string {
-  switch (type) {
-    case 'WALK_IN':
-      return 'Walk-in centre';
-    case 'URGENT_CARE':
-      return 'Urgent care';
-    default:
-      return 'GP surgery';
-  }
-}
+const localeMap: Record<Language, string> = {
+  en: 'en-GB',
+  cy: 'cy-GB',
+  pl: 'pl-PL'
+};
 
 export function SlotList({ slots, registeredOdsCode, onBook }: SlotListProps) {
+  const { t, lang } = useI18n();
+
+  function formatSlot(startTime: string) {
+    return new Intl.DateTimeFormat(localeMap[lang], {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(new Date(startTime));
+  }
+
+  function locationTypeLabel(type: FHIRSlot['locationType']): string {
+    switch (type) {
+      case 'WALK_IN':
+        return t('slots.walkIn');
+      case 'URGENT_CARE':
+        return t('slots.urgentCare');
+      default:
+        return t('slots.gpSurgery');
+    }
+  }
+
   return (
     <section className="slots-panel" aria-labelledby="slots-title">
       <div className="section-heading">
         <div>
-          <span className="eyebrow">Live availability</span>
-          <h2 id="slots-title">The next best appointments</h2>
+          <span className="eyebrow">{t('slots.eyebrow')}</span>
+          <h2 id="slots-title">{t('slots.title')}</h2>
         </div>
-        <span className="slot-count">{slots.length} open</span>
+        <span className="slot-count">{t('slots.open', { n: slots.length })}</span>
       </div>
       <div className="slot-list">
         {slots.length === 0 ? (
-          <p className="empty-state">Run a triage to surface suitable appointments.</p>
+          <p className="empty-state">{t('slots.empty')}</p>
         ) : (
           slots.map((slot) => {
             const isRegistered = slot.odsCode === registeredOdsCode;
             const canBook = !slot.requiresRegistration || isRegistered || slot.acceptsOutOfArea;
-            const buttonLabel = canBook ? 'Hold slot' : 'Register first';
+            const buttonLabel = canBook ? t('slots.hold') : t('slots.registerFirst');
 
             return (
               <article className="slot-card" key={slot.id}>
@@ -65,13 +75,11 @@ export function SlotList({ slots, registeredOdsCode, onBook }: SlotListProps) {
                 </div>
                 {slot.requiresRegistration && !isRegistered && (
                   <p className="registration-note">
-                    {slot.acceptsOutOfArea
-                      ? 'Accepts out-of-area patients. Home visits may be limited.'
-                      : 'You must be registered at this practice to book.'}
+                    {slot.acceptsOutOfArea ? t('slots.outOfArea') : t('slots.mustRegister')}
                   </p>
                 )}
                 <div className="slot-actions">
-                  <span className="slot-status">{slot.status === 'FREE' ? 'Available' : slot.status}</span>
+                  <span className="slot-status">{slot.status === 'FREE' ? t('slots.available') : slot.status}</span>
                   <button type="button" onClick={() => onBook(slot)} disabled={slot.status !== 'FREE'}>
                     {buttonLabel}
                   </button>

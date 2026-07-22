@@ -11,7 +11,10 @@
     "dev:worker": "pnpm --filter @gpnow/worker dev",
     "format": "prettier --write .",
     "typecheck": "pnpm --recursive --if-present run typecheck",
-    "db:init": "pnpm --filter @gpnow/worker db:init"
+    "db:init": "pnpm --filter @gpnow/worker db:init",
+    "deploy:worker": "pnpm --filter @gpnow/worker deploy",
+    "deploy:web": "pnpm --filter @gpnow/web deploy",
+    "deploy": "pnpm build && pnpm deploy:worker && pnpm deploy:web"
   },
   "devDependencies": {
     "prettier": "^3.5.3",
