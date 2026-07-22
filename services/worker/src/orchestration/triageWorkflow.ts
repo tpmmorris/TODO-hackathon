@@ -24,21 +24,27 @@ function enforceSafety(redFlag: RedFlagResult, recommendation: TriageRecommendat
     return {
       summary: recommendation.summary,
       urgency: 'URGENT',
-      suggestedAction: 'Call 999 now. Do not wait for a GP appointment.'
+      recommendedRoute: '999_EMERGENCY',
+      suggestedAction: 'Call 999 now. Do not wait for a GP appointment.',
+      generalAdvice: ['Do not drive yourself to hospital.', 'Keep your phone nearby and follow the emergency operator instructions.']
     };
   }
   if (redFlag.actionRequired === '111_TRANSFER') {
     return {
       summary: recommendation.summary,
       urgency: 'URGENT',
-      suggestedAction: 'Contact NHS 111 now for urgent clinical assessment.'
+      recommendedRoute: 'NHS_111',
+      suggestedAction: 'Contact NHS 111 now for urgent clinical assessment.',
+      generalAdvice: ['Contact NHS 111 now.', 'Do not wait for a routine appointment if symptoms worsen.']
     };
   }
   if (redFlag.isRedFlag) {
     return {
       summary: recommendation.summary,
       urgency: 'URGENT',
-      suggestedAction: 'Seek urgent clinical advice through NHS 111.'
+      recommendedRoute: 'NHS_111',
+      suggestedAction: 'Seek urgent clinical advice through NHS 111.',
+      generalAdvice: ['Contact NHS 111 for urgent advice.', 'Seek emergency help if symptoms become life-threatening.']
     };
   }
   return recommendation;
@@ -76,7 +82,7 @@ function buildResponse(
 export async function executeTriage(request: TriageRequest, env: Env): Promise<TriageResponse> {
   const redFlag = await checkRedFlags(request.symptoms, env);
   const recommendation = redFlag.actionRequired === '999_EMERGENCY'
-    ? { summary: request.symptoms, urgency: 'URGENT' as const, suggestedAction: 'Call 999 now.' }
+    ? { summary: request.symptoms, urgency: 'URGENT' as const, recommendedRoute: '999_EMERGENCY' as const, suggestedAction: 'Call 999 now.', generalAdvice: ['Do not drive yourself to hospital.', 'Follow the emergency operator instructions.'] }
     : await analyzeSymptoms(request.symptoms, env);
   const slots = await aggregateSlots(request, redFlag, env);
   return buildResponse(request, redFlag, recommendation, slots);
@@ -88,7 +94,7 @@ export class TriageWorkflow extends WorkflowEntrypoint<Env, TriageWorkflowParams
     const redFlag = await step.do('run clinical safety guardrail', async () => checkRedFlags(request.symptoms, this.env));
     const recommendation = await step.do('generate care-navigation recommendation', async () =>
       redFlag.actionRequired === '999_EMERGENCY'
-        ? { summary: request.symptoms, urgency: 'URGENT' as const, suggestedAction: 'Call 999 now.' }
+        ? { summary: request.symptoms, urgency: 'URGENT' as const, recommendedRoute: '999_EMERGENCY' as const, suggestedAction: 'Call 999 now.', generalAdvice: ['Do not drive yourself to hospital.', 'Follow the emergency operator instructions.'] }
         : analyzeSymptoms(request.symptoms, this.env)
     );
     const slots = await step.do('aggregate registration-aware care options', async () =>
