@@ -1,4 +1,5 @@
 import type { FHIRSlot, TriageRequest } from '@gpnow/types';
+import { transcribeAudio } from './ai/llamaTriage';
 import { checkRedFlags } from './ai/vectorizeGuard';
 import { getNearbyPharmacies, getNearbySlots, getPractices, getPracticesByLocation, getWalkInAndUrgentCareSlots, saveTriageLog } from './data/d1Db';
 import { createSbarReport } from './data/r2Storage';
@@ -135,14 +136,6 @@ async function getTurnCredentials(env: Env): Promise<Response> {
 async function route(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   if (request.method === 'OPTIONS') return new Response(null, { status: 204 });
-  if (url.pathname === '/' && request.method === 'GET') {
-    return json({
-      service: 'gpnow-worker',
-      status: 'ok',
-      message: 'Worker API is running. Open http://localhost:5173 for the GPNow UI.',
-      endpoints: ['/api/health', '/api/practices', '/api/slots', '/api/triage', '/api/calls/ice-servers', '/api/calls/offer', '/api/pharmacy-stock']
-    });
-  }
   if (url.pathname === '/api/health') return json({ service: 'gpnow-worker', status: 'ok' });
 
   if (url.pathname === '/api/practices' && request.method === 'GET') {
@@ -183,6 +176,17 @@ async function route(request: Request, env: Env): Promise<Response> {
     const { latitude, longitude } = await geocodePostcode(postcode);
     const pharmacies = await getNearbyPharmacies(latitude, longitude, medicine, radiusKm, env);
     return json(pharmacies);
+  }
+
+  if (url.pathname === '/api/transcribe' && request.method === 'POST') {
+    if (request.headers.get('x-consent-to-process') !== 'true' || !request.headers.get('x-patient-id')) {
+      return json({ error: 'Patient identity and consent are required for transcription' }, 400);
+    }
+    const contentType = request.headers.get('content-type') ?? '';
+    if (!contentType.startsWith('audio/')) return json({ error: 'An audio payload is required' }, 415);
+    const audio = await request.arrayBuffer();
+    const text = await transcribeAudio(audio, env);
+    return json({ text });
   }
 
   if (url.pathname === '/api/triage' && request.method === 'POST') {
@@ -236,15 +240,12 @@ async function route(request: Request, env: Env): Promise<Response> {
       status,
       disclaimer
     } as const;
-    try {
-      await saveTriageLog(triageRequest, JSON.stringify(response), env);
-    } catch {
-      // Logging must not block a safety response when D1 is unavailable locally.
-    }
+    await saveTriageLog(triageRequest, JSON.stringify(response), env);
     return json(response);
   }
 
-  return json({ error: 'Not found' }, 404);
+  if (url.pathname.startsWith('/api/')) return json({ error: 'Not found' }, 404);
+  return env.ASSETS.fetch(request);
 }
 
 export default {

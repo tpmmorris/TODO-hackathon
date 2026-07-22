@@ -20,15 +20,14 @@ function safeFallback(text: string): TriageModelResult {
 }
 
 export async function transcribeAudio(audio: ArrayBuffer, env: Env): Promise<string> {
-  try {
-    if (!env.AI || audio.byteLength === 0) return '';
-    const result = (await env.AI.run('@cf/openai/whisper', {
-      audio: [...new Uint8Array(audio)]
-    })) as { text?: string };
-    return result.text?.trim() ?? '';
-  } catch {
-    return '';
-  }
+  if (!env.AI) throw new Error('Workers AI is not configured');
+  if (audio.byteLength === 0) throw new Error('Audio payload is empty');
+  const result = (await env.AI.run('@cf/openai/whisper', {
+    audio: [...new Uint8Array(audio)]
+  })) as { text?: string };
+  const text = result.text?.trim();
+  if (!text) throw new Error('Whisper returned no transcript');
+  return text;
 }
 
 export async function analyzeSymptoms(text: string, env: Env): Promise<TriageModelResult> {

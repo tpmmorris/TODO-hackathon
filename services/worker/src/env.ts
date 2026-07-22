@@ -1,6 +1,7 @@
 import type { TriageWorkflowParams } from './orchestration/triageWorkflow';
 
 export interface Env {
+  ASSETS: Fetcher;
   AI: Ai;
   DB: D1Database;
   REPORTS_BUCKET: R2Bucket;

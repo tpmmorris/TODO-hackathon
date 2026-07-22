@@ -162,7 +162,14 @@ export default function App() {
             />
             <div className="input-footer">
               <span>{symptoms.length}/1,000 characters</span>
-              <VoiceRecorder onError={setNotice} />
+              <VoiceRecorder
+                patientId="demo-patient"
+                onTranscript={(text) => {
+                  setSymptoms(text);
+                  setNotice('');
+                }}
+                onError={setNotice}
+              />
             </div>
             {loadError && <p className="notice error-notice">{loadError}</p>}
             {notice && <p className="notice">{notice}</p>}
