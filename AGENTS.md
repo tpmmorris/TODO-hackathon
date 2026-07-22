@@ -171,6 +171,8 @@ Do not move slot locking into the frontend. The frontend may request a lock, but
 
 `r2Storage.ts` currently stores SBAR reports as JSON. It is intentionally a storage boundary; a PDF renderer can be added without changing the shared `SBARReport` shape.
 
+`analytics.ts` records only operational dimensions and metrics. Never send patient IDs, symptoms, transcripts, medication names, or SBAR content to Analytics Engine.
+
 `nhsOdsApi.ts` integrates the NHS ODS FHIR organization endpoint. `openPrescribing.ts` integrates OpenPrescribing prescribing activity. External API failures should be handled at the caller boundary and must not bypass safety checks.
 
 ## Frontend
@@ -247,7 +249,7 @@ pnpm build
 pnpm db:init
 ```
 
-`pnpm build` includes a Vite production build and `wrangler deploy --dry-run`. The dry run must show `AI`, `DB`, `REPORTS_BUCKET`, `VECTOR_INDEX`, `SLOT_LOCK_DO`, and `TRIAGE_WORKFLOW` bindings.
+`pnpm build` includes a Vite production build and `wrangler deploy --dry-run`. The dry run must show `AI`, `DB`, `REPORTS_BUCKET`, `VECTOR_INDEX`, `SLOT_LOCK_DO`, `TRIAGE_WORKFLOW`, `CARE_OPTIONS_WORKFLOW`, and `ANALYTICS` bindings.
 
 Useful manual checks:
 

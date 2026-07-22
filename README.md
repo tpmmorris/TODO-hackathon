@@ -56,6 +56,7 @@ The repository is intentionally split so four developers can work independently 
 - **Durable Objects:** `SlotLockDO` exposes a WebSocket lock engine for short-lived appointment holds and broadcasts state changes to connected clients.
 - **D1:** `data/d1Db.ts` projects stored records into the shared FHIR slot shape and records triage events.
 - **R2:** `data/r2Storage.ts` writes SBAR JSON and audio objects. The storage boundary can be replaced with a PDF renderer without changing the UI contract.
+- **Analytics Engine:** `services/worker/src/analytics.ts` records privacy-safe operational metrics such as route, urgency, latency, slot count, and language. It never records symptoms, patient IDs, transcripts, medication names, or SBAR content.
 - **NHS integrations:** `data/nhsOdsApi.ts` resolves practice metadata from ODS, while `data/openPrescribing.ts` provides prescribing activity for downstream pharmacy and care-navigation features.
 
 Bindings are declared in `services/worker/wrangler.jsonc`:
@@ -66,6 +67,7 @@ Bindings are declared in `services/worker/wrangler.jsonc`:
 - `VECTOR_INDEX` -> Vectorize index `nhs-111-guidelines`
 - `SLOT_LOCK_DO` -> `SlotLockDO`
 - `TRIAGE_WORKFLOW` -> `TriageWorkflow`
+- `ANALYTICS` -> Analytics Engine dataset `gpnow_events`
 
 The `database_id` is intentionally `mock-id` in this hackathon scaffold. Replace it with the real D1 database ID before deployment and create the Vectorize index/R2 bucket named in the configuration.
 

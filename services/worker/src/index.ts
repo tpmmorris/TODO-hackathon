@@ -2,7 +2,9 @@ import type { PatientLanguage, TriageRequest } from '@gpnow/types';
 import { transcribeAudio } from './ai/llamaTriage';
 import { getNearbySlots, getPractices, getPracticesByLocation, saveTriageLog } from './data/d1Db';
 import { getPrescribingSummary } from './data/openPrescribing';
+import { writeSbarReport } from './data/r2Storage';
 import type { Env } from './env';
+import { recordAnalyticsEvent } from './analytics';
 import { geocodePostcode } from './lib/geo';
 import { executeCareOptions } from './orchestration/careOptionsWorkflow';
 import { executeTriage } from './orchestration/triageWorkflow';
@@ -178,18 +180,21 @@ async function route(request: Request, env: Env): Promise<Response> {
     }
 
     const careOptions = await executeCareOptions({ postcode, medicine }, env);
+    recordAnalyticsEvent(env, { name: 'pharmacy_search', route: '/api/pharmacy-stock', count: careOptions.pharmacies.length, hasMedicine: true });
     return json(careOptions.pharmacies);
   }
 
   if (url.pathname === '/api/care-options' && request.method === 'GET') {
     const postcode = url.searchParams.get('postcode');
     if (!postcode?.trim()) return json({ error: 'postcode is required' }, 400);
-    return json(await executeCareOptions({
+    const response = await executeCareOptions({
       postcode,
       registeredOdsCode: url.searchParams.get('registeredOdsCode') ?? undefined,
       medicine: url.searchParams.get('medicine') ?? undefined,
       includePrescribing: url.searchParams.get('includePrescribing') === 'true'
-    }, env));
+    }, env);
+    recordAnalyticsEvent(env, { name: 'care_options', route: '/api/care-options', count: response.slots.length, hasMedicine: Boolean(response.pharmacies.length) });
+    return json(response);
   }
 
   if (url.pathname === '/api/prescribing' && request.method === 'GET') {
@@ -204,9 +209,11 @@ async function route(request: Request, env: Env): Promise<Response> {
     }
     const contentType = request.headers.get('content-type') ?? '';
     if (!contentType.startsWith('audio/')) return json({ error: 'An audio payload is required' }, 415);
+    const startedAt = Date.now();
     const audio = await request.arrayBuffer();
     const language = toPatientLanguage(request.headers.get('x-language'));
     const text = await transcribeAudio(audio, env, language);
+    recordAnalyticsEvent(env, { name: 'transcription', route: '/api/transcribe', language, durationMs: Date.now() - startedAt });
     return json({ text });
   }
 
@@ -226,8 +233,19 @@ async function route(request: Request, env: Env): Promise<Response> {
       language: toPatientLanguage(body.language),
       consentToProcess: true
     };
+    const startedAt = Date.now();
     const response = await executeTriage(triageRequest, env);
-    await saveTriageLog(triageRequest, JSON.stringify(response), env);
+    const reportKey = response.report ? await writeSbarReport(response.report, env) : undefined;
+    await saveTriageLog(triageRequest, JSON.stringify({ ...response, reportKey }), env);
+    recordAnalyticsEvent(env, {
+      name: 'triage',
+      route: '/api/triage',
+      status: response.status,
+      urgency: response.recommendation.urgency,
+      language: triageRequest.language,
+      count: response.slots.length,
+      durationMs: Date.now() - startedAt
+    });
     return json(response);
   }
 

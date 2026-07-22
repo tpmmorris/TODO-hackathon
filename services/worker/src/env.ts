@@ -3,6 +3,7 @@ import type { CareOptionsWorkflowParams } from './orchestration/careOptionsWorkf
 
 export interface Env {
   ASSETS: Fetcher;
+  ANALYTICS?: AnalyticsEngineDataset;
   AI: Ai;
   DB: D1Database;
   REPORTS_BUCKET: R2Bucket;
