@@ -213,10 +213,16 @@ export async function getWalkInAndUrgentCareSlots(env: Env): Promise<FHIRSlot[]>
 }
 
 export async function saveTriageLog(request: TriageRequest, result: string, env: Env) {
-  await env.DB.prepare(
-    `INSERT INTO triage_logs (id, patient_id, ods_code, symptom_text, result_json, created_at)
-     VALUES (?1, ?2, ?3, ?4, ?5, datetime('now'))`
-  )
-    .bind(crypto.randomUUID(), request.patientId, request.odsCode ?? null, request.symptoms, result)
-    .run();
+  // Audit logging is best-effort: a persistence failure must never break the
+  // triage response the patient depends on.
+  try {
+    await env.DB.prepare(
+      `INSERT INTO triage_logs (id, patient_id, ods_code, symptom_text, result_json, created_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, datetime('now'))`
+    )
+      .bind(crypto.randomUUID(), request.patientId, request.odsCode ?? null, request.symptoms, result)
+      .run();
+  } catch (error) {
+    console.error('Failed to persist triage log', error);
+  }
 }
