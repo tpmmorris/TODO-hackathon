@@ -2,65 +2,67 @@ import { useRef, useState } from 'react';
 import { CloudflareCallsAudioClient } from '../services/cloudflareCalls';
 
 interface VoiceRecorderProps {
-  onTranscript: (text: string) => void;
+  onError: (message: string) => void;
 }
 
-type RecorderStatus = 'idle' | 'recording' | 'processing';
+type RecorderStatus = 'idle' | 'connecting' | 'recording' | 'error';
 
-/** The UI boundary for Cloudflare Calls audio. MediaRecorder is the local fallback. */
-export function VoiceRecorder({ onTranscript }: VoiceRecorderProps) {
+/** Browser microphone and Cloudflare Calls signaling boundary. */
+export function VoiceRecorder({ onError }: VoiceRecorderProps) {
   const [status, setStatus] = useState<RecorderStatus>('idle');
-  const [message, setMessage] = useState('Use your voice instead');
-  const recorder = useRef<MediaRecorder | null>(null);
-  const chunks = useRef<Blob[]>([]);
+  const [message, setMessage] = useState('Start a secure live audio session');
+  const stream = useRef<MediaStream | null>(null);
   const callsClient = useRef<CloudflareCallsAudioClient | null>(null);
 
   async function toggleRecording() {
     if (status === 'recording') {
-      recorder.current?.stop();
       callsClient.current?.stop();
-      setStatus('processing');
-      setMessage('Preparing secure audio...');
-      return;
-    }
-
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setMessage('Voice capture is not available in this browser');
-      return;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      callsClient.current = new CloudflareCallsAudioClient();
-      const publishedToCalls = await callsClient.current.publish(stream);
-      const nextRecorder = new MediaRecorder(stream);
-      chunks.current = [];
-      nextRecorder.addEventListener('dataavailable', (event) => chunks.current.push(event.data));
-      nextRecorder.addEventListener('stop', () => {
-        stream.getTracks().forEach((track) => track.stop());
-        const audio = new Blob(chunks.current, { type: nextRecorder.mimeType || 'audio/webm' });
-        setStatus('idle');
-        setMessage(audio.size > 0 ? (publishedToCalls ? 'Audio sent to Calls + Whisper' : 'Audio ready for Whisper transcription') : 'No audio captured');
-        if (audio.size > 0) onTranscript('I have recorded symptoms for triage.');
-      });
-      recorder.current = nextRecorder;
-      nextRecorder.start();
-      setStatus('recording');
-      setMessage('Listening... tap to finish');
-    } catch {
+      stream.current?.getTracks().forEach((track) => track.stop());
+      stream.current = null;
+      callsClient.current = null;
       setStatus('idle');
-      setMessage('Microphone permission is needed for voice triage');
+      setMessage('Voice session ended. Describe symptoms in the text box.');
+      return;
+    }
+
+    if (status === 'connecting') {
+      return;
+    }
+
+    let nextStream: MediaStream | null = null;
+    let nextClient: CloudflareCallsAudioClient | null = null;
+    try {
+      setStatus('connecting');
+      setMessage('Requesting microphone access...');
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error('This browser does not support microphone capture');
+      nextStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setMessage('Connecting to Cloudflare Calls...');
+      nextClient = new CloudflareCallsAudioClient();
+      await nextClient.publish(nextStream);
+      stream.current = nextStream;
+      callsClient.current = nextClient;
+      setStatus('recording');
+      setMessage('Cloudflare Calls live audio connected');
+    } catch (error) {
+      nextStream?.getTracks().forEach((track) => track.stop());
+      nextClient?.stop();
+      callsClient.current?.stop();
+      callsClient.current = null;
+      const message = error instanceof Error ? error.message : 'Cloudflare Calls voice session failed';
+      setStatus('error');
+      setMessage(message);
+      onError(message);
     }
   }
 
   return (
     <div className={`voice-recorder ${status}`}>
-      <button className="voice-button" type="button" onClick={toggleRecording} aria-label="Record symptoms">
+      <button className="voice-button" type="button" onClick={toggleRecording} disabled={status === 'connecting'} aria-label="Start Cloudflare Calls voice session">
         <span className="voice-icon">{status === 'recording' ? '■' : '●'}</span>
       </button>
       <div>
-        <strong>{status === 'recording' ? 'Recording symptoms' : 'Voice triage'}</strong>
-        <span>{status === 'processing' ? 'Cloudflare Calls + Whisper' : message}</span>
+        <strong>{status === 'recording' ? 'Live voice session' : 'Cloudflare Calls'}</strong>
+        <span>{message}</span>
       </div>
     </div>
   );

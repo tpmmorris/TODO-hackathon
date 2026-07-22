@@ -8,19 +8,18 @@ Requirements: Node.js 20+, pnpm 9+, and a Cloudflare account for deployed bindin
 
 ```bash
 pnpm install
-pnpm dev:web
+pnpm db:init
+pnpm dev
 ```
 
-The web app runs at `http://localhost:5173`. It has deterministic mock data, so the UI is usable without Cloudflare credentials.
-
-To run the Worker locally in a second terminal:
+This starts the web app at `http://localhost:5173` and the Worker at `http://localhost:8787`. To run them separately:
 
 ```bash
 pnpm db:init
 pnpm dev:worker
 ```
 
-The Worker runs at `http://localhost:8787` and the Vite development server proxies `/api` to it. The local AI, Vectorize, R2, Workflow, and Durable Object bindings need Cloudflare credentials or a deployed environment; all safety and UI paths have fallbacks for frontend-first development.
+The Worker runs at `http://localhost:8787` and the Vite development server proxies `/api` to it. The local AI binding uses remote Workers AI and Vectorize is not supported locally; service errors are surfaced as hard errors. The deterministic red-flag guardrail is the only intentional safety fallback.
 
 Useful commands:
 
@@ -47,7 +46,7 @@ The repository is intentionally split so four developers can work independently 
 ## Cloudflare Architecture
 
 - **Workers AI:** Whisper transcription and Llama 3 symptom summarisation are isolated in `ai/llamaTriage.ts`.
-- **Cloudflare Calls:** `apps/web/src/services/cloudflareCalls.ts` publishes microphone audio through a configured WebRTC signaling proxy; local `MediaRecorder` remains the development fallback.
+- **Cloudflare Calls:** `apps/web/src/services/cloudflareCalls.ts` publishes microphone audio through a configured WebRTC signaling proxy. A configured Calls signaling endpoint is required for voice sessions.
 - **Vectorize:** `ai/vectorizeGuard.ts` embeds symptom text and checks the `nhs-111-guidelines` index. Local, deterministic red-flag patterns fail closed when the index is empty or unavailable.
 - **Workflows:** `TriageWorkflow` sequences the clinical safety check and slot aggregation with durable step boundaries.
 - **Durable Objects:** `SlotLockDO` exposes a WebSocket lock engine for short-lived appointment holds and broadcasts state changes to connected clients.
@@ -72,10 +71,15 @@ The `database_id` is intentionally `mock-id` in this hackathon scaffold. Replace
 - `GET /api/practices`
 - `GET /api/slots?odsCode=G82001`
 - `POST /api/triage` with `{ patientId, symptoms, odsCode, consentToProcess }`
+- `POST /api/calls/offer` with a browser WebRTC offer and audio track `mid`
 
-The frontend API client falls back to mock practices and slots when the Worker is not running. The Worker itself returns an empty D1 result when local database bindings are not initialized, rather than hiding a binding error.
+The frontend API client does not provide mock practices, slots, or triage responses. Worker, D1, signaling, and AI errors must be fixed and are surfaced to the user or returned as HTTP errors.
 
-Set `VITE_CALLS_SIGNALING_URL` when a Calls signaling proxy is available. The proxy must accept a local SDP offer and return `{ type, sdp }` for the Calls answer; no Calls API token is exposed to the browser.
+Set `VITE_CALLS_SIGNALING_URL` to a Calls signaling proxy before starting the web app. The proxy must accept a local SDP offer and return `{ type, sdp }` for the Calls answer; no Calls API token is exposed to the browser.
+
+For local Realtime SFU testing, create `apps/web/.env.local` with `VITE_CALLS_SIGNALING_URL=http://localhost:8787/api/calls/offer` and `VITE_CALLS_ICE_SERVERS_URL=http://localhost:8787/api/calls/ice-servers`. Keep the Realtime App ID, App Secret, TURN Token ID, and TURN API token in `services/worker/.dev.vars`; use `services/worker/.dev.vars.example` as the shape, and never place secrets in frontend environment variables. The Worker creates the Realtime session and short-lived TURN credentials server-side.
+
+If the browser reports ICE error `701` or times out while gathering candidates, disable Cloudflare WARP or another VPN while testing locally. WARP can intercept the network interfaces used by WebRTC ICE.
 
 ## Safety and Privacy
 

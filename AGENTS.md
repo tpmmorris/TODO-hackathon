@@ -111,10 +111,12 @@ The Worker is an API and does not serve the frontend HTML.
 - `GET /api/practices` returns D1-backed practices.
 - `GET /api/slots?odsCode=G82001` returns free FHIR slot projections.
 - `POST /api/triage` accepts a consented `TriageRequest` and returns red-flag status, slots, an SBAR report, and a care-navigation status.
+- `GET /api/calls/ice-servers` generates short-lived Cloudflare TURN ICE credentials server-side.
+- `POST /api/calls/offer` accepts a browser SDP offer and audio track `mid`, creates a Cloudflare Realtime SFU session, and returns the SDP answer.
 
 The Worker has permissive CORS for hackathon development. Tighten origins and authentication before production use.
 
-The frontend API client uses `/api` through Vite's development proxy. If the Worker is unavailable, it falls back to deterministic mock practices and slots so frontend development can proceed independently.
+The frontend API client uses `/api` through Vite's development proxy. It does not provide mock practices, slots, or triage responses; Worker and API errors must be surfaced to the user.
 
 ## Cloudflare Bindings
 
@@ -128,6 +130,8 @@ Bindings are declared in `services/worker/wrangler.jsonc`:
 | `VECTOR_INDEX` | Vectorize `nhs-111-guidelines` | Semantic red-flag guideline matching |
 | `SLOT_LOCK_DO` | Durable Object `SlotLockDO` | WebSocket slot lock coordination |
 | `TRIAGE_WORKFLOW` | Workflow `TriageWorkflow` | Durable triage orchestration |
+
+Cloudflare Realtime credentials are not Wrangler bindings. Store `CALLS_APP_ID`, `CALLS_APP_SECRET`, `TURN_TOKEN_ID`, and `TURN_API_TOKEN` in `services/worker/.dev.vars` for local development and as Worker secrets for deployment. Never expose `CALLS_APP_SECRET` or `TURN_API_TOKEN` through browser code or `VITE_*` variables.
 
 The configured D1 `database_id` is the intentional placeholder `mock-id`. Replace it before deployment. The configured R2 bucket and Vectorize index must exist before production deployment.
 
@@ -179,7 +183,7 @@ The web app is a split-pane dashboard:
 
 `PracticeMap.tsx` uses Leaflet and OpenStreetMap tiles. Keep map cleanup in the React effect to avoid duplicate maps during Vite hot reload.
 
-`VoiceRecorder.tsx` uses browser `MediaRecorder` locally. `services/cloudflareCalls.ts` publishes the microphone stream through a configured WebRTC signaling proxy when `VITE_CALLS_SIGNALING_URL` is set. The browser must never receive a Cloudflare Calls API token.
+`VoiceRecorder.tsx` captures microphone audio for a real Cloudflare Calls session. `services/cloudflareCalls.ts` requires a configured WebRTC signaling proxy through `VITE_CALLS_SIGNALING_URL`. The browser must never receive a Cloudflare Calls API token.
 
 The UI is prototype-oriented but must remain usable on desktop and mobile. Preserve the existing visual language unless a deliberate design change is requested.
 
@@ -219,12 +223,16 @@ Local Wrangler behavior:
 - D1, R2, Durable Objects, and Workflows run in local mode.
 - AI uses remote Workers AI and may incur usage charges.
 - Vectorize is not supported locally unless configured as a remote binding.
-- The UI and deterministic red-flag fallback work without seeded AI or Vectorize.
+- The UI requires the Worker and local D1 to be available.
+- The deterministic red-flag guardrail is the only intentional fallback and must remain fail closed.
 
 Optional frontend environment variables:
 
 - `VITE_API_BASE_URL` changes the Worker API base URL.
-- `VITE_CALLS_SIGNALING_URL` enables the Cloudflare Calls WebRTC signaling boundary.
+- `VITE_CALLS_SIGNALING_URL` is required for the Cloudflare Calls WebRTC signaling boundary.
+- `VITE_CALLS_ICE_SERVERS_URL` is required for short-lived TURN ICE credentials.
+
+Cloudflare WARP or another VPN can cause local browser ICE error `701` and candidate-gathering timeouts. Disable it while testing WebRTC locally.
 
 ## Validation
 

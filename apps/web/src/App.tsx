@@ -8,6 +8,10 @@ import { getPractices, getSlots, submitTriage } from './services/api';
 
 const defaultSymptoms = 'Tell us what is happening, including when it started...';
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'The request failed';
+}
+
 export default function App() {
   const [practices, setPractices] = useState<Practice[]>([]);
   const [slots, setSlots] = useState<FHIRSlot[]>([]);
@@ -18,14 +22,20 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [triaging, setTriaging] = useState(false);
   const [notice, setNotice] = useState('');
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
-    Promise.all([getPractices(), getSlots()]).then(([loadedPractices, loadedSlots]) => {
-      setPractices(loadedPractices);
-      setSlots(loadedSlots);
-      setSelectedPractice(loadedPractices[0]);
-      setLoading(false);
-    });
+    void Promise.all([getPractices(), getSlots()])
+      .then(([loadedPractices, loadedSlots]) => {
+        setPractices(loadedPractices);
+        setSlots(loadedSlots);
+        setSelectedPractice(loadedPractices[0]);
+        setLoading(false);
+      })
+      .catch((error: unknown) => {
+        setLoadError(getErrorMessage(error));
+        setLoading(false);
+      });
   }, []);
 
   async function runTriage() {
@@ -34,22 +44,34 @@ export default function App() {
       return;
     }
     setNotice('');
+    setEmergency(undefined);
     setTriaging(true);
-    const triageResponse = await submitTriage({
-      patientId: 'demo-patient',
-      symptoms,
-      odsCode: selectedPractice?.odsCode,
-      consentToProcess: true
-    });
-    setResult(triageResponse);
-    setSlots(triageResponse.slots);
-    setTriaging(false);
-    if (triageResponse.redFlag.isRedFlag) setEmergency(triageResponse.redFlag);
+    try {
+      const triageResponse = await submitTriage({
+        patientId: 'demo-patient',
+        symptoms,
+        odsCode: selectedPractice?.odsCode,
+        consentToProcess: true
+      });
+      setResult(triageResponse);
+      setSlots(triageResponse.slots);
+      if (triageResponse.redFlag.isRedFlag) setEmergency(triageResponse.redFlag);
+    } catch (error: unknown) {
+      setNotice(getErrorMessage(error));
+    } finally {
+      setTriaging(false);
+    }
   }
 
   async function selectPractice(practice: Practice) {
-    setSelectedPractice(practice);
-    setSlots(await getSlots(practice.odsCode));
+    try {
+      const nextSlots = await getSlots(practice.odsCode);
+      setSelectedPractice(practice);
+      setSlots(nextSlots);
+      setNotice('');
+    } catch (error: unknown) {
+      setNotice(getErrorMessage(error));
+    }
   }
 
   function bookSlot(slot: FHIRSlot) {
@@ -109,8 +131,9 @@ export default function App() {
             />
             <div className="input-footer">
               <span>{symptoms.length}/1,000 characters</span>
-              <VoiceRecorder onTranscript={setSymptoms} />
+              <VoiceRecorder onError={setNotice} />
             </div>
+            {loadError && <p className="notice error-notice">{loadError}</p>}
             {notice && <p className="notice">{notice}</p>}
             <button className="primary-button" type="button" onClick={runTriage} disabled={triaging}>
               {triaging ? 'Checking safely...' : 'Find the right care'}
